@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import "./../../styles/group-management.scss";
+import "./../../styles/group-management2.scss";
 import type { Group, GroupSyncStatus } from "../../../../entities/api/groupAPI";
 import type { User } from "../../../../entities/api/userAPI";
 import { getGroups, createGroup, updateGroup, deleteGroup } from "../../../../services/api/groupService";

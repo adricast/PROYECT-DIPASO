@@ -10,7 +10,6 @@ const authRepo = new AuthRepository();
 const TOKEN_KEY = "auth_token";
 
 export async function syncPendingGroups() {
-  // ✅ Usando GroupSyncStatus para evitar warning de ESLint
   const pendingGroups = await groupRepo.getGroupsBySyncStatus("pending" as GroupSyncStatus);
   const deletedGroups = await groupRepo.getGroupsBySyncStatus("deleted" as GroupSyncStatus);
   const updatedGroups = await groupRepo.getGroupsBySyncStatus("updated" as GroupSyncStatus);
@@ -31,21 +30,21 @@ export async function syncPendingGroups() {
     return;
   }
 
-  for (const group of groupsToSync) {
-    try {
-      // --- MARCAR IN-PROGRESS para todos los grupos antes de procesarlos
-      await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
+  try {
+    for (const group of groupsToSync) {
+      // 🚨 CAMBIO CLAVE: Diferenciamos el tipo de operación
+      if (group.syncStatus === "pending" || (group.syncStatus === "updated" && group.tempId)) {
+        // --- CREACIÓN de grupo nuevo (o actualización de un grupo nuevo) ---
+        await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
 
-      if (group.syncStatus === "pending") {
-        // --- NUEVO grupo offline ---
-        const groupToSend = {
+        const newGroupData = {
           group_name: group.groupName,
           description: group.description,
+          createdAt: Date.now(),
         };
-
         const response = await api.post<Group>(
           groupRouteApi.group,
-          groupToSend,
+          newGroupData,
           { headers: { Authorization: `Bearer ${token.token}` } }
         );
 
@@ -53,9 +52,9 @@ export async function syncPendingGroups() {
         await groupRepo.deleteGroup(group.tempId!);
         await groupRepo.saveGroup(serverGroup);
         groupSensor.itemSynced(serverGroup);
-
-      } else if (group.syncStatus === "updated" || group.syncStatus === "synced") {
-        // --- ACTUALIZACIÓN de grupo existente ---
+      } else if (group.syncStatus === "updated" && group.groupId) {
+        // --- ACTUALIZACIÓN de un grupo existente (que ya tiene groupId) ---
+        await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
         const groupUpdates = {
           group_name: group.groupName,
           description: group.description,
@@ -71,7 +70,6 @@ export async function syncPendingGroups() {
         const serverGroup: Group = { ...response.data, syncStatus: "synced" };
         await groupRepo.saveGroup(serverGroup);
         groupSensor.itemSynced(serverGroup);
-
       } else if (group.syncStatus === "deleted") {
         // --- Eliminar grupo ---
         if (group.groupId) {
@@ -82,12 +80,19 @@ export async function syncPendingGroups() {
         await groupRepo.deleteGroup(group.groupId || group.tempId!);
         groupSensor.emit("itemDeleted", group.groupId || group.tempId!);
       }
-
-    } catch (error) {
-      console.error("❌ Error al sincronizar grupo:", group, error);
-      groupSensor.itemFailed(group, error);
+    }
+    groupSensor.success();
+  } catch (error) {
+    console.error("❌ Error al sincronizar grupo:", error);
+    groupSensor.failure(error);
+    // Revertir el estado a `updated` o `pending` si la sincronización falla
+    for (const group of groupsToSync) {
+      if (group.syncStatus === "in-progress") {
+        await groupRepo.saveGroup({
+          ...group,
+          syncStatus: group.tempId ? "pending" : "updated",
+        });
+      }
     }
   }
-
-  groupSensor.success();
 }

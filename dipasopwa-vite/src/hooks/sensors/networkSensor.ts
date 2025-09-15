@@ -22,21 +22,6 @@ const BACKEND_URL = "http://127.0.0.1:5000/api";
 const PING_INTERVAL = 5000;
 let pingInterval: number | null = null;
 
-const updateNetworkStatus = () => {
-  const newIsOnline = navigator.onLine;
-
-  if (newIsOnline !== isOnline) {
-    isOnline = newIsOnline;
-    if (isOnline) {
-      networkSensor.emit("online");
-      startServerPing();
-    } else {
-      networkSensor.emit("offline");
-      stopServerPing();
-    }
-  }
-};
-
 const checkServerStatus = async () => {
     try {
         const res = await fetch(`${BACKEND_URL}/ping`); 
@@ -44,28 +29,29 @@ const checkServerStatus = async () => {
             if (!serverOnline) {
                 serverOnline = true;
                 networkSensor.emit("server-online");
+                console.log("✅ Servidor online detectado, emitiendo evento.");
             }
         } else {
             if (serverOnline) {
                 serverOnline = false;
                 networkSensor.emit("server-offline");
+                console.log("❌ Servidor offline, emitiendo evento.");
             }
         }
-    } catch {
+    } catch (error) {
         if (serverOnline) {
             serverOnline = false;
-            networkSensor.emit("server-offline");
+            networkSensor.emit("server-offline" );
+            console.log("❌ Servidor offline (error de conexión), emitiendo evento."+ error);
         }
     }
-}
+};
 
 const startServerPing = () => {
- if (pingInterval !== null) return;
-
- // ⬅️ NOTA: El primer chequeo se hace con checkServerStatus()
- // Esto solo iniciará el ping periódico después del primer chequeo.
- pingInterval = window.setInterval(checkServerStatus, PING_INTERVAL);
-
+  if (pingInterval !== null) {
+    return;
+  }
+  pingInterval = window.setInterval(checkServerStatus, PING_INTERVAL);
 };
 
 const stopServerPing = () => {
@@ -75,10 +61,25 @@ const stopServerPing = () => {
     }
 };
 
+const updateNetworkStatus = () => {
+  const newIsOnline = navigator.onLine;
+
+  if (newIsOnline !== isOnline) {
+    isOnline = newIsOnline;
+    if (isOnline) {
+      networkSensor.emit("online");
+      // 🚨 CAMBIO CLAVE: Llama a checkServerStatus() inmediatamente
+      checkServerStatus();
+      startServerPing();
+    } else {
+      networkSensor.emit("offline");
+      stopServerPing();
+    }
+  }
+};
+
 const checkInitialStatus = () => {
   if (navigator.onLine) {
-    // ⬅️ CAMBIO CLAVE: Primero checamos el estado del servidor
-    // y luego iniciamos el ping periódico.
     checkServerStatus();
     startServerPing();
   }
@@ -86,6 +87,8 @@ const checkInitialStatus = () => {
 
 window.addEventListener("online", updateNetworkStatus);
 window.addEventListener("offline", updateNetworkStatus);
+
+checkInitialStatus();
 
 export const onNetworkChange = (
   onlineCallback: () => void,
@@ -105,5 +108,3 @@ export const onNetworkChange = (
     if (serverOfflineCallback) networkSensor.off("server-offline", serverOfflineCallback);
   };
 };
-
-checkInitialStatus();
