@@ -1,43 +1,59 @@
 # src/services/user_service.py
 from models.user_model import User
-from datetime import datetime
-import uuid
 
 class UserService:
 
-    def create_user(self, username, password, name, group_id):
-        user = User(
-            user_id=str(uuid.uuid4()),
-            username=username,
-            password=password,
-            name=name,
-            group_id=group_id,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
-        success = user.save()
-        return success, user if success else None
+    def create_user(self, username, password, identification, email, isactive):
+        """Crea un nuevo usuario con los campos especificados."""
+        # Se podría agregar validación aquí antes de intentar guardar
+        try:
+            user = User(
+                username=username,
+                password=password,
+                identification=identification,
+                email=email,
+                isactive=isactive
+            )
+            success = user.save()
+            if not success:
+                return False, "Error al guardar el usuario en la base de datos."
+            return True, user
+        except Exception as e:
+            # Captura de errores inesperados, como problemas de conexión o datos inválidos
+            return False, f"Error inesperado al crear usuario: {str(e)}"
 
     def get_all_users(self):
+        """Obtiene todos los usuarios."""
         return User.get_all()
 
     def get_user_by_id(self, user_id):
-        return User.get_by_id(user_id)
+        """Busca un usuario por su ID."""
+        user = User.get_by_id(user_id)
+        return user
 
     def update_user(self, user_id, **kwargs):
-        user = User.get_by_id(user_id)
+        """Actualiza un usuario existente por su ID con los campos proporcionados."""
+        user = self.get_user_by_id(user_id)
         if not user:
-            return False, "Usuario no encontrado"
+            return False, "Usuario no encontrado."
+        
+        # Validar y actualizar solo los campos válidos
         for k, v in kwargs.items():
             if hasattr(user, k):
                 setattr(user, k, v)
-        user.updated_at = datetime.utcnow()
+
         success = user.update()
-        return success, user if success else "Error actualizando usuario"
+        if not success:
+            return False, "Error al actualizar el usuario en la base de datos."
+        return True, user
 
     def delete_user(self, user_id):
-        user = User.get_by_id(user_id)
+        """Elimina un usuario por su ID."""
+        user = self.get_user_by_id(user_id)
         if not user:
-            return False, "Usuario no encontrado"
+            return False, "Usuario no encontrado."
+        
         success = user.delete()
-        return success, "Usuario eliminado" if success else "Error eliminando usuario"
+        if not success:
+            return False, "Error al eliminar el usuario de la base de datos."
+        return True, "Usuario eliminado correctamente."

@@ -18,13 +18,22 @@ def get_user(user_id):
 @user_bp.route("/", methods=["POST"])
 def create_user():
     data = request.json
-    success, user = user_service.create_user(
+    required_fields = ["username", "password", "identification", "email", "isactive"]
+    if not data or not all(field in data for field in required_fields):
+        return jsonify({"error": "Faltan datos obligatorios"}), 400
+
+    success, result = user_service.create_user(
         username=data["username"],
         password=data["password"],
-        name=data["name"],
-        group_id=data["group_id"]
+        identification=data["identification"],
+        email=data["email"],
+        isactive=data["isactive"]
     )
-    return jsonify(user.__dict__) if success else ({"error": "Error creando usuario"}, 500)
+    
+    if success:
+        return jsonify(result.__dict__), 201  # 201 Created
+    else:
+        return jsonify({"error": result}), 500
 
 @user_bp.route("/<string:user_id>", methods=["PUT"])
 def update_user(user_id):
@@ -32,11 +41,21 @@ def update_user(user_id):
 
     # Quitar user_id del body si existe
     data.pop("user_id", None)
-
-    success, user_or_msg = user_service.update_user(user_id, **data)
-    return jsonify(user_or_msg.__dict__) if success else ({"error": user_or_msg}, 404)
+    
+    success, result = user_service.update_user(user_id, **data)
+    
+    if success:
+        return jsonify(result.__dict__)
+    else:
+        # Aquí el mensaje de error puede ser "Usuario no encontrado" u otro
+        return jsonify({"error": result}), 404
 
 @user_bp.route("/<string:user_id>", methods=["DELETE"])
 def delete_user(user_id):
-    success, msg = user_service.delete_user(user_id)
-    return jsonify({"message": msg}) if success else ({"error": msg}, 404)
+    success, result = user_service.delete_user(user_id)
+    
+    if success:
+        return jsonify({"message": result})
+    else:
+        # Aquí el mensaje de error puede ser "Usuario no encontrado" u otro
+        return jsonify({"error": result}), 404
