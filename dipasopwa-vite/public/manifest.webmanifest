@@ -1,0 +1,30 @@
+{
+  "short_name": "POS DIPASO",
+  "name": "Sistema Punto de Venta DIPASO",
+  "icons": [
+    {
+      "src": "icon-144x144.png",
+      "type": "image/png",
+      "sizes": "144x144",
+      "purpose": "any"
+    },
+      {
+      "src": "icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "description": "Sistema de punto de venta para DIPASO con funcionalidad offline"
+}

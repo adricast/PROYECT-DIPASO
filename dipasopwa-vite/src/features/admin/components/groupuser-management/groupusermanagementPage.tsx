@@ -1,7 +1,7 @@
 // src/pages/GroupUserManagementPage.tsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import GroupManagement  from "./groupusermanagement";
+import GroupManagement  from "./groupusermanagement2";
 
 
 const GroupUserManagementPage: React.FC = () => {

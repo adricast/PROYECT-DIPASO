@@ -1,5 +1,4 @@
-/* eslint-disable no-restricted-globals */
-// Service Worker básico para precache de la PWA
+
 const CACHE_NAME = "pos-app-v1";
 const urlsToCache = [
   "/",
