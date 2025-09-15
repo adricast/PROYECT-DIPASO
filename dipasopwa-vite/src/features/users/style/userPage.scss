@@ -1,0 +1,133 @@
+// src/features/user/style/userPage.scss
+
+.user-page {
+  padding: 1.5rem;
+  font-family: Arial, sans-serif;
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: #333;
+  }
+
+  .user-page-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+
+    input {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.5rem 1rem;
+      border: 1px solid #ccc;
+      border-radius: 0.25rem;
+      font-size: 1rem;
+      margin-right: 0.5rem;
+      transition: border 0.2s ease;
+
+      &:focus {
+        outline: none;
+        border-color: #007bff;
+      }
+    }
+
+    .add-btn {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #218838;
+      }
+    }
+  }
+
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+
+    .user-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+
+      th, td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+
+      th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #555;
+      }
+
+      tr:hover {
+        background-color: #f1f1f1;
+      }
+
+      td {
+        vertical-align: middle;
+
+        button {
+          margin-right: 0.5rem;
+          padding: 0.25rem 0.5rem;
+          border: none;
+          border-radius: 0.25rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+        }
+
+        .edit-btn {
+          background-color: #007bff;
+          color: white;
+
+          &:hover {
+            background-color: #0069d9;
+          }
+        }
+
+        .delete-btn {
+          background-color: #dc3545;
+          color: white;
+
+          &:hover {
+            background-color: #c82333;
+          }
+        }
+      }
+    }
+  }
+
+  // Responsive
+  @media (max-width: 768px) {
+    .user-page-controls {
+      flex-direction: column;
+      align-items: stretch;
+
+      input {
+        margin-bottom: 0.5rem;
+        margin-right: 0;
+      }
+
+      .add-btn {
+        width: 100%;
+      }
+    }
+
+    .table-responsive {
+      .user-table {
+        min-width: 100%;
+        font-size: 0.875rem;
+      }
+    }
+  }
+}

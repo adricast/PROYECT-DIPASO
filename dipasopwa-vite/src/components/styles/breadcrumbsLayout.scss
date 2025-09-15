@@ -1,0 +1,51 @@
+/* src/components/layout/breadcrumbs.scss */
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+
+  .breadcrumb-item {
+    display: flex;
+    align-items: center;
+
+    button {
+      background: none;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+      transition: background 0.2s, color 0.2s;
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.05);
+      }
+
+      &.active {
+        font-weight: 700;
+      }
+    }
+
+    .separator {
+      margin: 0 4px;
+      color: #999;
+    }
+  }
+}
+
+/* Responsive: pantallas pequeñas */
+@media (max-width: 768px) {
+  .breadcrumbs {
+    font-size: 0.8rem;
+
+    .breadcrumb-item {
+      button {
+        padding: 3px 6px;
+      }
+      .separator {
+        margin: 0 3px;
+      }
+    }
+  }
+}

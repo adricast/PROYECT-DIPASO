@@ -1,0 +1,199 @@
+.dashboard-container {
+  display: flex;
+  min-height: 100vh;
+  width: 99vw;
+  
+  background-color: #f3f4f6;
+  
+  aside.desktop {
+    width: 80px; // 🔑 Sidebar fijo
+    background-color: #fff;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; // separa en 3 secciones
+    padding: 1rem 0;
+    background-color: #9524a4;
+    .branch-selector {
+      position: relative;
+      width: 60px;
+      margin: 0 auto;
+
+      .branch-card {
+        text-align: center;
+        background: #7a1c96;
+        border-radius: 0.75rem;
+        padding: 0.5rem 0;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        .branch-id {
+          color: white;
+          font-weight: bold;
+          font-size: 0.75rem;
+          padding: 2px 6px;
+          border-radius: 0.25rem;
+          display: block;
+        }
+
+        .branch-name {
+          font-size: 0.60rem;
+          color: #fff;
+          display: block;
+        }
+
+        &:hover {
+          background: #8c27aa;
+        }
+
+        &.selected {
+          border: 2px solid #ffcd00;
+          background: #a03ac1;
+        }
+      }
+
+      /* Dropdown container */
+      .branch-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background: #7a1c96;
+        border-radius: 0.75rem;
+        margin-top: 4px;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        z-index: 10;
+
+        .branch-card {
+          margin: 0;
+          border-radius: 0;
+          width: 100%;
+
+          &:hover {
+            background: #8c27aa;
+          }
+        }
+      }
+
+      &.open .branch-dropdown {
+        display: flex;
+      }
+    }
+
+
+    nav {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .user-profile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 1rem;
+      position: relative;
+      background-color: #9524a4;
+      padding-top: 3px;
+      padding: 4px;
+      .username{
+        font-size: 0.7rem;
+      }
+      img {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid #9524a4;
+      }
+
+      .menu {
+        position: absolute;
+        bottom: 60px;
+        background-color: #3a0e40;
+        color:white;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        display: none;
+        flex-direction: column;
+        min-width: 120px;
+        border: 1px solid #200824;
+
+        button {
+          background: none;
+          border: none;
+          padding: 0.5rem 1rem;
+          text-align: left;
+          cursor: pointer;
+
+          font-size: 0.70rem;
+
+          &:hover {
+            background-color: #2b062a;
+          }
+        }
+      }
+
+      &.open .menu {
+        display: flex;
+      }
+    }
+  }
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 30px;
+      padding: 2px;
+      padding-left: 10px;
+      
+      h1 {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #200824;
+      }
+    }
+
+    main {
+      
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+  }
+}
+@media (max-width: 768px) {
+  .dashboard-container {
+ 
+  background-color: #f3f4f6;
+
+    aside.desktop {
+       width: 60px;
+        .branch-selector {
+           width: 50px;
+           .branch-card {
+                text-align: center;
+              .branch-id {
+                  font-size: 0.65rem;
+                
+                }
+
+                .branch-name {
+                  font-size: 0.45rem;
+                  
+              }
+           }   
+        }
+    }
+  }
+}

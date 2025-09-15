@@ -1,0 +1,27 @@
+
+.login-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh; // altura completa de la pantalla
+  width: 100vw; // ocupar todo el ancho
+ 
+  background-color: #f3f4f6; // gris claro
+}
+
+.login-form-wrapper {
+  width: 100%;
+  max-width: 400px; // ancho máximo del formulario
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  
+
+  @media (max-width: 500px) {
+    max-width: 90%;
+   
+  }
+}

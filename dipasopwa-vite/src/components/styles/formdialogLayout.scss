@@ -1,0 +1,65 @@
+.form-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.form-dialog-container {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.form-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+  }
+}
+
+.form-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+
+  .cancel-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    background-color: #e2e8f0;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #cbd5e1;
+    }
+  }
+}
