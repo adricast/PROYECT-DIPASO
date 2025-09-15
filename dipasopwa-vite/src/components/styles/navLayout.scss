@@ -2,7 +2,7 @@
   display: flex;
   height: 100vh;
   width: 80px;
-  background-color: #9524a4;
+  background-color: #624A89;
   &.vertical {
     flex-direction: column;
   }
@@ -40,7 +40,7 @@
     }
 
     &.active {
-      background-color: #501458;
+      background-color: #4d3a6b;
       color: white;
       width: 80px;
 
@@ -75,7 +75,7 @@
         color: white;
       }
       &.active {
-      background-color: #501458;
+      background-color: #4d3a6b;
       color: white;
       width: 60px;
       }

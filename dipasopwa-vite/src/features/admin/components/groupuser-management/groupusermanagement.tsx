@@ -7,8 +7,10 @@ import AddEditGroupDialog from "./addeditgroupdialog";
 import DeleteConfirmationDialog from "./deleteconfirmationdialog";
 
 // Importar los íconos de React
-import { FaPlus, FaTrashAlt } from "react-icons/fa";
 
+import {
+ FaPlus, FaTrash
+} from "react-icons/fa6";
 const GroupManagement: React.FC = () => {
  const [groups, setGroups] = useState<Group[]>([]);
  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -101,7 +103,8 @@ return (
 {g.groupName} ({g.syncStatus})
 </span>
 <button className="delete-button" onClick={(e) => { e.stopPropagation(); handleOpenDeleteDialog(g); }}>
-<FaTrashAlt size={16} />
+
+<FaTrash  size={16} color="white"  />
 </button>
 </div>
 ))}

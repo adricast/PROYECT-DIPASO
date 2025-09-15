@@ -13,7 +13,7 @@
     flex-direction: column;
     justify-content: space-between; // separa en 3 secciones
     padding: 1rem 0;
-    background-color: #9524a4;
+    background-color: #624A89;
     .branch-selector {
       position: relative;
       width: 60px;
@@ -21,7 +21,7 @@
 
       .branch-card {
         text-align: center;
-        background: #7a1c96;
+        background: #624A89;
         border-radius: 0.75rem;
         padding: 0.5rem 0;
         cursor: pointer;
@@ -43,12 +43,12 @@
         }
 
         &:hover {
-          background: #8c27aa;
+          background: #624A89;
         }
 
         &.selected {
           border: 2px solid #ffcd00;
-          background: #a03ac1;
+          background: #624A89;
         }
       }
 
@@ -58,7 +58,7 @@
         top: 100%;
         left: 0;
         width: 100%;
-        background: #7a1c96;
+        background: #624A89;
         border-radius: 0.75rem;
         margin-top: 4px;
         display: none;
@@ -96,7 +96,7 @@
       align-items: center;
       margin-bottom: 1rem;
       position: relative;
-      background-color: #9524a4;
+      background-color: #624A89;
       padding-top: 3px;
       padding: 4px;
       .username{
@@ -107,7 +107,7 @@
         height: 48px;
         border-radius: 50%;
         cursor: pointer;
-        border: 2px solid #9524a4;
+        border: 2px solid #624A89;
       }
 
       .menu {

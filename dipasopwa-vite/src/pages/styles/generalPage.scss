@@ -6,7 +6,7 @@
   font-size: 0.95rem;
   font-weight: 600;
   color: #ffffff;
-  background-color: #9524a4;// verde principal
+  background-color: #624A89;// verde principal
   border: none;
   border-radius: 0.375rem; // bordes redondeados
   cursor: pointer;
@@ -14,7 +14,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 
   &:hover {
-    background-color: #4f1457; // verde más oscuro al pasar el mouse
+    background-color: #4a3868; // verde más oscuro al pasar el mouse
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     transform: translateY(-1px);
   }
