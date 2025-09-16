@@ -83,10 +83,13 @@
 
     
   .delete-button {
-    background: #624A89; /* Color pálido */
-    color: white;
+    //background: #624A89; /* Color pálido */
+    background: white;
+    color: black;
+    box-shadow: 2px 2px gray;
     border: none; /* opcional, si no quieres borde */
-    border-radius: 8px;
+    border-radius: 5px;
+    //border:2px solid black;
     width: 36px;
     height: 36px;
     display: flex;
@@ -94,11 +97,13 @@
     justify-content: center;
     cursor: pointer;
     font-size: 10px;
-
+    border: 1px solid black;
     transition: background 0.3s ease, transform 0.3s ease;
 
     &:hover {
-      background: #7a1d8c; /* un poco más oscuro al pasar */
+      border: 2px solid black;
+      background: white; /* un poco más oscuro al pasar */
+      
       transform: scale(1.1);
     }
 
@@ -156,6 +161,7 @@
   border-radius: 0px;
   input{
     background-color: white;
+    color: black;
     border: 2px solid gray;
   }
 }

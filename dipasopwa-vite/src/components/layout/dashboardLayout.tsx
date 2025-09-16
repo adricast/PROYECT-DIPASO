@@ -14,7 +14,7 @@ import {
   FaCog,
   FaShieldAlt,
 } from "react-icons/fa";
-import Breadcrumbs from "../../components/layout/breadcrumbsLayout";
+import Breadcrumbs from "./breadcrumbsLayout";
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -71,6 +71,8 @@ const DashboardLayout: React.FC = () => {
 
   return (
     <div className="dashboard-container">
+      
+      
       {/* Sidebar Izquierda */}
       <aside className="desktop">
         <div className={`branch-selector ${dropdownOpen ? "open" : ""}`}>
@@ -78,6 +80,7 @@ const DashboardLayout: React.FC = () => {
             <div className="branch-id">{branches.find((b) => b.id === selectedBranch)?.id}</div>
             <div className="branch-name">{branches.find((b) => b.id === selectedBranch)?.name}</div>
           </div>
+      
           <div className="branch-dropdown">
             {branches.map((branch) => (
               <div
@@ -111,19 +114,32 @@ const DashboardLayout: React.FC = () => {
       </aside>
 
       {/* Contenido */}
-      <div className="main-content">
+      <div className="main-content" >
+
+      
+       
         <header>
+          
+        
           <Breadcrumbs
             items={breadcrumbs}
             activeColor="#059669"
             textColor="#2c3e50"
             separator="→"
           />
-        
-        <div className="status-indicators">
-          <NetworkStatusDisplay />
-        </div>
+        <div className="status-indicators" style={
+            {
+              height: 16,
+              backgroundColor: "yellow",
+              marginRight:95,
+            
+            }
+          }>
+            <NetworkStatusDisplay />
+          </div>
+       
         </header>
+         
         <main>
           <Outlet context={{ userName, selectedBranch, branches }} />
         </main>

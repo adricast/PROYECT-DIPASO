@@ -1,9 +1,3 @@
-// src/sensors/networkSensor.ts
-
-// ****************
-// sensor general
-// ****************
-
 import mitt from "mitt";
 
 export type NetworkEvents = {
@@ -19,38 +13,39 @@ export let isOnline = navigator.onLine;
 export let serverOnline = false;
 
 const BACKEND_URL = "http://127.0.0.1:5000/api";
+const isLocalBackend =
+  BACKEND_URL.includes("127.0.0.1") || BACKEND_URL.includes("localhost");
+
 const PING_INTERVAL = 5000;
 let pingInterval: number | null = null;
 
 const checkServerStatus = async () => {
-    try {
-        const res = await fetch(`${BACKEND_URL}/ping`); 
-        if (res.ok) {
-            if (!serverOnline) {
-                serverOnline = true;
-                networkSensor.emit("server-online");
-                console.log("✅ Servidor online detectado, emitiendo evento.");
-            }
-        } else {
-            if (serverOnline) {
-                serverOnline = false;
-                networkSensor.emit("server-offline");
-                console.log("❌ Servidor offline, emitiendo evento.");
-            }
-        }
-    } catch (error) {
-        if (serverOnline) {
-            serverOnline = false;
-            networkSensor.emit("server-offline" );
-            console.log("❌ Servidor offline (error de conexión), emitiendo evento."+ error);
-        }
+  try {
+    const res = await fetch(`${BACKEND_URL}/ping`);
+    if (res.ok) {
+      if (!serverOnline) {
+        serverOnline = true;
+        networkSensor.emit("server-online");
+        console.log("✅ Servidor online detectado.");
+      }
+    } else {
+      if (serverOnline) {
+        serverOnline = false;
+        networkSensor.emit("server-offline");
+        console.log("❌ Servidor respondió mal.");
+      }
     }
+  } catch (error) {
+    if (serverOnline) {
+      serverOnline = false;
+      networkSensor.emit("server-offline");
+      console.log("❌ Servidor offline (error conexión).", error);
+    }
+  }
 };
 
 const startServerPing = () => {
-  if (pingInterval !== null) {
-    return;
-  }
+  if (pingInterval !== null) return;
   pingInterval = window.setInterval(checkServerStatus, PING_INTERVAL);
 };
 
@@ -58,7 +53,7 @@ const stopServerPing = () => {
   if (pingInterval !== null) {
     clearInterval(pingInterval);
     pingInterval = null;
-    }
+  }
 };
 
 const updateNetworkStatus = () => {
@@ -68,18 +63,26 @@ const updateNetworkStatus = () => {
     isOnline = newIsOnline;
     if (isOnline) {
       networkSensor.emit("online");
-      // 🚨 CAMBIO CLAVE: Llama a checkServerStatus() inmediatamente
-      checkServerStatus();
-      startServerPing();
+      console.log("🌐 Internet conectado");
     } else {
       networkSensor.emit("offline");
-      stopServerPing();
+      console.log("🌐 Internet desconectado");
     }
+  }
+
+  // 👇 IMPORTANTE:
+  // Si el backend es local → siempre seguimos haciendo ping
+  // Si es remoto → solo ping si hay internet
+  if (isLocalBackend || isOnline) {
+    checkServerStatus();
+    startServerPing();
+  } else {
+    stopServerPing();
   }
 };
 
 const checkInitialStatus = () => {
-  if (navigator.onLine) {
+  if (isLocalBackend || navigator.onLine) {
     checkServerStatus();
     startServerPing();
   }
@@ -98,13 +101,17 @@ export const onNetworkChange = (
 ) => {
   networkSensor.on("online", onlineCallback);
   networkSensor.on("offline", offlineCallback);
-  if (serverOnlineCallback) networkSensor.on("server-online", serverOnlineCallback);
-  if (serverOfflineCallback) networkSensor.on("server-offline", serverOfflineCallback);
+  if (serverOnlineCallback)
+    networkSensor.on("server-online", serverOnlineCallback);
+  if (serverOfflineCallback)
+    networkSensor.on("server-offline", serverOfflineCallback);
 
   return () => {
     networkSensor.off("online", onlineCallback);
     networkSensor.off("offline", offlineCallback);
-    if (serverOnlineCallback) networkSensor.off("server-online", serverOnlineCallback);
-    if (serverOfflineCallback) networkSensor.off("server-offline", serverOfflineCallback);
+    if (serverOnlineCallback)
+      networkSensor.off("server-online", serverOnlineCallback);
+    if (serverOfflineCallback)
+      networkSensor.off("server-offline", serverOfflineCallback);
   };
 };
