@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 from services.group_service import GroupService
 from psycopg2 import DatabaseError
 
-group_bp = Blueprint("groups", __name__)
+group_bp = Blueprint("iam-user-groups", __name__)
 group_service = GroupService()
 
 # -------------------------------
@@ -20,7 +20,6 @@ def ping():
 def get_roles():
     try:
         roles = group_service.get_all_groups()
-        # Usar to_dict() para la serialización correcta
         return jsonify([r.to_dict() for r in roles])
     except Exception as e:
         return jsonify({
@@ -30,14 +29,13 @@ def get_roles():
         }), 500
 
 # -------------------------------
-# Obtener rol por ID
+# Obtener rol por ID (user_group_id)
 # -------------------------------
-@group_bp.route("/<string:group_id>", methods=["GET"])
-def get_group(group_id):
+@group_bp.route("/<string:user_group_id>", methods=["GET"])
+def get_group(user_group_id):
     try:
-        group = group_service.get_group_by_id(group_id)
+        group = group_service.get_group_by_id(user_group_id)
         if group:
-            # Usar to_dict()
             return jsonify(group.to_dict())
         return jsonify({"error": "Rol no encontrado"}), 404
     except Exception as e:
@@ -63,7 +61,6 @@ def create_group():
             description=data["description"]
         )
         if success:
-            # Usar to_dict()
             return jsonify(role.to_dict()), 201
         else:
             return jsonify({"error": "Error desconocido creando rol"}), 500
@@ -86,13 +83,12 @@ def create_group():
 # -------------------------------
 # Actualizar rol
 # -------------------------------
-@group_bp.route("/<string:group_id>", methods=["PUT"])
-def update_group(group_id):
+@group_bp.route("/<string:user_group_id>", methods=["PUT"])
+def update_group(user_group_id):
     try:
         data = request.json
-        success, role_or_msg = group_service.update_group(group_id, **data)
+        success, role_or_msg = group_service.update_group(user_group_id, **data)
         if success:
-            # Usar to_dict()
             return jsonify(role_or_msg.to_dict())
         else:
             return jsonify({"error": role_or_msg}), 404
@@ -106,11 +102,10 @@ def update_group(group_id):
 # -------------------------------
 # Eliminar rol
 # -------------------------------
-@group_bp.route("/<string:group_id>", methods=["DELETE"])
-
-def delete_group(group_id):
+@group_bp.route("/<string:user_group_id>", methods=["DELETE"])
+def delete_group(user_group_id):
     try:
-        success, msg = group_service.delete_group(group_id)
+        success, msg = group_service.delete_group(user_group_id)
         if success:
             return jsonify({"message": msg})
         else:

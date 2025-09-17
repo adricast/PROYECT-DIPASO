@@ -14,8 +14,12 @@ export async function syncPendingGroups() {
   const deletedGroups = await groupRepo.getGroupsBySyncStatus("deleted" as GroupSyncStatus);
   const updatedGroups = await groupRepo.getGroupsBySyncStatus("updated" as GroupSyncStatus);
 
-  const groupsToSync = [...pendingGroups, ...deletedGroups, ...updatedGroups];
-  if (!groupsToSync.length) {
+  const groupsToSync = new Map<string | number, Group>();
+  [...pendingGroups, ...updatedGroups, ...deletedGroups].forEach(group => {
+      groupsToSync.set(group.groupId || group.tempId!, group);
+  });
+  
+  if (!groupsToSync.size) {
     console.log("✅ No hay grupos pendientes para sincronizar.");
     groupSensor.success();
     return;
@@ -30,69 +34,98 @@ export async function syncPendingGroups() {
     return;
   }
 
-  try {
-    for (const group of groupsToSync) {
-      // 🚨 CAMBIO CLAVE: Diferenciamos el tipo de operación
-      if (group.syncStatus === "pending" || (group.syncStatus === "updated" && group.tempId)) {
-        // --- CREACIÓN de grupo nuevo (o actualización de un grupo nuevo) ---
-        await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
+  let hasError = false;
 
-        const newGroupData = {
-          group_name: group.groupName,
-          description: group.description,
-          createdAt: Date.now(),
-        };
-        const response = await api.post<Group>(
-          groupRouteApi.group,
-          newGroupData,
-          { headers: { Authorization: `Bearer ${token.token}` } }
-        );
+  for (const group of groupsToSync.values()) {
+    // Manejo de errores de manera individual para cada tipo de operación
+    if (group.syncStatus === "pending") {
+        try {
+            await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
+            const newGroupData = {
+                group_name: group.groupName,
+                description: group.description,
+                createdAt: Date.now(),
+            };
+            const response = await api.post<Group>(
+                groupRouteApi.group,
+                newGroupData,
+                { headers: { Authorization: `Bearer ${token.token}` } }
+            );
 
-        const serverGroup: Group = { ...response.data, syncStatus: "synced" };
-        await groupRepo.deleteGroup(group.tempId!);
-        await groupRepo.saveGroup(serverGroup);
-        groupSensor.itemSynced(serverGroup);
-      } else if (group.syncStatus === "updated" && group.groupId) {
-        // --- ACTUALIZACIÓN de un grupo existente (que ya tiene groupId) ---
-        await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
-        const groupUpdates = {
-          group_name: group.groupName,
-          description: group.description,
-          updatedAt: Date.now(),
-        };
-
-        const response = await api.put<Group>(
-          `${groupRouteApi.group}${group.groupId}`,
-          groupUpdates,
-          { headers: { Authorization: `Bearer ${token.token}` } }
-        );
-
-        const serverGroup: Group = { ...response.data, syncStatus: "synced" };
-        await groupRepo.saveGroup(serverGroup);
-        groupSensor.itemSynced(serverGroup);
-      } else if (group.syncStatus === "deleted") {
-        // --- Eliminar grupo ---
-        if (group.groupId) {
-          await api.delete(`${groupRouteApi.group}${group.groupId}`, {
-            headers: { Authorization: `Bearer ${token.token}` },
-          });
+            const serverGroup: Group = { ...response.data, syncStatus: "synced" };
+            await groupRepo.deleteGroup(group.tempId!);
+            await groupRepo.saveGroup(serverGroup);
+            groupSensor.itemSynced(serverGroup);
+        } catch (pendingError: unknown) {
+            console.error(`❌ Error al crear grupo ${group.tempId}:`, pendingError);
+            hasError = true;
+            await groupRepo.saveGroup({ ...group, syncStatus: "pending" });
+            groupSensor.emit("item-failed", { item: group, error: pendingError });
         }
-        await groupRepo.deleteGroup(group.groupId || group.tempId!);
-        groupSensor.emit("itemDeleted", group.groupId || group.tempId!);
+      } else if (group.syncStatus === "updated") {
+        try {
+            await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
+            const groupUpdates = {
+              group_name: group.groupName,
+              description: group.description,
+              updatedAt: Date.now(),
+            };
+
+            const response = await api.put<Group>(
+              `${groupRouteApi.group}${group.groupId}`,
+              groupUpdates,
+              { headers: { Authorization: `Bearer ${token.token}` } }
+            );
+
+            const serverGroup: Group = { ...response.data, syncStatus: "synced" };
+            await groupRepo.saveGroup(serverGroup);
+            groupSensor.itemSynced(serverGroup); // ⬅️ He añadido esta línea
+        } catch (updateError: unknown) {
+            const isNotFoundError = typeof updateError === 'object' && updateError !== null && 'response' in updateError && (updateError as any).response?.status === 404;
+
+            if (isNotFoundError) {
+                console.log(`✅ Grupo ${group.groupId} no encontrado en el servidor al actualizar, eliminando de IndexedDB.`);
+                await groupRepo.deleteGroup(group.groupId!);
+                groupSensor.emit("itemDeleted", group.groupId!);
+            } else {
+                console.error(`❌ Error al actualizar grupo ${group.groupId}:`, updateError);
+                hasError = true;
+                await groupRepo.saveGroup({ ...group, syncStatus: "updated" });
+                groupSensor.emit("item-failed", { item: group, error: updateError });
+            }
+        }
+      } else if (group.syncStatus === "deleted") {
+        if (group.groupId) {
+          try {
+            await api.delete(`${groupRouteApi.group}${group.groupId}`, {
+              headers: { Authorization: `Bearer ${token.token}` },
+            });
+            await groupRepo.deleteGroup(group.groupId);
+            groupSensor.emit("itemDeleted", group.groupId);
+          } catch (deleteError: unknown) {
+            const isNotFoundError = typeof deleteError === 'object' && deleteError !== null && 'response' in deleteError && (deleteError as any).response?.status === 404;
+
+            if (isNotFoundError) {
+              console.log(`✅ Grupo ${group.groupId} no encontrado en el servidor, eliminando de IndexedDB.`);
+              await groupRepo.deleteGroup(group.groupId);
+              groupSensor.emit("itemDeleted", group.groupId);
+            } else {
+              console.error(`❌ Error al eliminar grupo ${group.groupId}:`, deleteError);
+              hasError = true;
+              await groupRepo.saveGroup({ ...group, syncStatus: "deleted" });
+              groupSensor.emit("item-failed", { item: group, error: deleteError });
+            }
+          }
+        } else {
+          await groupRepo.deleteGroup(group.tempId!);
+          groupSensor.emit("itemDeleted", group.tempId!);
+        }
       }
-    }
+  }
+
+  if (hasError) {
+    groupSensor.failure(new Error("Algunos grupos no se pudieron sincronizar."));
+  } else {
     groupSensor.success();
-  } catch (error) {
-    console.error("❌ Error al sincronizar grupo:", error);
-    groupSensor.failure(error);
-    // Revertir el estado a `updated` o `pending` si la sincronización falla
-    for (const group of groupsToSync) {
-      if (group.syncStatus === "in-progress") {
-        await groupRepo.saveGroup({
-          ...group,
-          syncStatus: group.tempId ? "pending" : "updated",
-        });
-      }
-    }
   }
 }

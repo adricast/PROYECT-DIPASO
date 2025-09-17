@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import './index.css';
 import App from './App.tsx';
+import 'primereact/resources/themes/lara-light-blue/theme.css'; // tema de PrimeReact
+import 'primereact/resources/primereact.min.css';               // core de PrimeReact
+import 'primeicons/primeicons.css';                             // íconos
+import 'primeflex/primeflex.css';                               // (opcional) utilidades PrimeFlex
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import "./../../styles/group-management.scss";
 import type { Group } from "../../../../entities/api/groupAPI";
 import { getGroups, createGroup, updateGroup, deleteGroup } from "../../../../services/api/groupService";
@@ -6,7 +6,9 @@ import { groupSensor } from "../../../../hooks/sensors/groupSensor";
 import AddEditGroupDialog from "./addeditgroupdialog";
 import DeleteConfirmationDialog from "./deleteconfirmationdialog";
 import { FaPlus, FaTrash } from "react-icons/fa6";
-import ReusableLight from "./../../../../components/layout/indicatorlight1ledLayout"; // import del nuevo componente
+import { MdEdit } from "react-icons/md";
+import ReusableLight from "./../../../../components/layout/indicatorlight1ledLayout";
+import { type GroupSyncStatus } from "../../../../entities/api/groupAPI";
 
 const GroupManagement: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -15,57 +17,63 @@ const GroupManagement: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<Group | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  const itemsPerPage = 5;
 
-  // Colores parametrizados según el estado
-  const statusColors: Record<string, { status: boolean; onlineColor?: string; offlineColor?: string }> = {
-    pending: { status: false, offlineColor: "#FF6347" },       // rojo tomate
-    synced: { status: true, onlineColor: "#32CD32" },          // verde lima
-    deleted: { status: false, offlineColor: "#A52A2A" },       // marrón oscuro
-    "in-progress": { status: true, onlineColor: "#FFA500" },   // naranja
-    updated: { status: true, onlineColor: "#1E90FF" },         // azul
+  const statusColors: Record<GroupSyncStatus, { status: boolean; onlineColor?: string; offlineColor?: string; tooltip: string }> = {
+    pending: { status: false, offlineColor: "#FF6347", tooltip: "Pendiente: Creado sin conexión." },
+    synced: { status: true, onlineColor: "#32CD32", tooltip: "Sincronizado: Listo." },
+    deleted: { status: false, offlineColor: "#A52A2A", tooltip: "Pendiente de eliminación." },
+    "in-progress": { status: true, onlineColor: "#FFA500", tooltip: "Sincronizando..." },
+    updated: { status: true, onlineColor: "#1E90FF", tooltip: "Pendiente: Actualizado sin conexión." },
+  };
+
+  const loadGroups = async () => {
+    const data = await getGroups();
+    setGroups(data);
   };
 
   useEffect(() => {
-    const loadGroups = async () => {
-      const data = await getGroups();
-      setGroups(data);
-    };
     loadGroups();
+  }, []);
+
+  useEffect(() => {
+    const handleSyncComplete = () => {
+      loadGroups();
+    };
+
+    const handleDeleted = () => {
+      loadGroups();
+    };
 
     const itemFailedHandler = ({ item }: { item: Group }) => {
       console.warn("⚠️ Grupo en estado pendiente:", item);
     };
 
-    const itemDeletedHandler = (id: string | number) => {
-      setGroups(prev => prev.filter(g => g.groupId !== id));
-      if (selectedGroup?.groupId === id) setSelectedGroup(null);
-    };
-
+    groupSensor.on("item-synced", handleSyncComplete);
+    groupSensor.on("itemDeleted", handleDeleted);
     groupSensor.on("item-failed", itemFailedHandler);
-    groupSensor.on("itemDeleted", itemDeletedHandler);
 
     return () => {
+      groupSensor.off("item-synced", handleSyncComplete);
+      groupSensor.off("itemDeleted", handleDeleted);
       groupSensor.off("item-failed", itemFailedHandler);
-      groupSensor.off("itemDeleted", itemDeletedHandler);
     };
-  }, [selectedGroup]);
+  }, []);
 
   const handleCreateOrUpdateGroup = async (groupName: string, description: string) => {
     if (selectedGroup) {
-      const updated = await updateGroup({
+      await updateGroup({
         ...selectedGroup,
         groupName,
         description,
         syncStatus: selectedGroup.syncStatus === "synced" ? "updated" : "pending",
       });
-      if (updated) setGroups(prev => prev.map(g => (g.groupId === updated.groupId ? updated : g)));
     } else {
-      const newGroup = await createGroup({ groupName, description, users: [] });
-      if (newGroup) setGroups(prev => [...prev, newGroup]);
+      await createGroup({ groupName, description, users: [] });
     }
     setIsGroupDialogOpen(false);
     setSelectedGroup(null);
+    loadGroups(); // ⬅️ Aseguramos que se recarguen los datos al guardar
   };
 
   const handleDeleteItem = async () => {
@@ -73,74 +81,110 @@ const GroupManagement: React.FC = () => {
     await deleteGroup(itemToDelete as Group);
     setIsDeleteDialogOpen(false);
     setItemToDelete(null);
+    loadGroups(); // ⬅️ Aseguramos que se recarguen los datos al eliminar
   };
 
   const handleOpenGroupDialog = (group: Group | null = null) => {
+    if (group && group.syncStatus !== "synced") {
+      alert("No se puede editar un grupo que aún no está sincronizado.");
+      return;
+    }
     setSelectedGroup(group);
     setIsGroupDialogOpen(true);
   };
 
   const handleOpenDeleteDialog = (item: Group) => {
+    if (item.syncStatus !== "synced") {
+      alert("No se puede eliminar un grupo que no está sincronizado.");
+      return;
+    }
     setItemToDelete(item);
     setIsDeleteDialogOpen(true);
   };
 
-  const indexOfLastGroup = currentPage * itemsPerPage;
-  const indexOfFirstGroup = indexOfLastGroup - itemsPerPage;
-  const currentGroups = groups.slice(indexOfFirstGroup, indexOfLastGroup);
+  const currentGroups = useMemo(() => {
+    const indexOfLastGroup = currentPage * itemsPerPage;
+    const indexOfFirstGroup = indexOfLastGroup - itemsPerPage;
+    return groups.slice(indexOfFirstGroup, indexOfLastGroup);
+  }, [groups, currentPage, itemsPerPage]);
+
   const totalPages = Math.ceil(groups.length / itemsPerPage);
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
-    <div className="group-management">
+    <div className="group-management table-wrapper">
       <div className="header-actions">
         <h2>Gestión de Grupos</h2>
-        <button className="add-button" onClick={() => handleOpenGroupDialog()}>
+        <button className="add-button action-btn" onClick={() => handleOpenGroupDialog()}>
           <FaPlus size={16} />
         </button>
       </div>
 
-      <div className="groups-list-container">
-        <div className="groups-list scrollable">
-          {currentGroups.map((g) => {
-            const lightProps = statusColors[g.syncStatus ?? "pending"] ?? { status: false };
+      <div className="table-container">
+        <div className="groups-list">
+          {currentGroups.map((g, index) => {
+            const isBlocked = g.syncStatus !== "synced";
+            const lightProps = statusColors[g.syncStatus ?? "pending"] ?? { status: false, tooltip: "" };
+            
             return (
-              <div key={g.groupId} className="group-item">
-                {/* Foco al lado izquierdo */}
-                <ReusableLight
-                  status={lightProps.status}
-                  comment={`Estado: ${g.syncStatus ?? "pending"}`}
-                  onlineColor={lightProps.onlineColor}
-                  offlineColor={lightProps.offlineColor}
-                  size={16}
-                />
-
-                <span onClick={() => handleOpenGroupDialog(g)}>
-                  {g.groupName} ({g.syncStatus})
-                </span>
-
-                <button
-                  className="delete-button"
-                  onClick={(e) => { e.stopPropagation(); handleOpenDeleteDialog(g); }}
-                >
-                  <FaTrash size={16} color="black" />
-                </button>
+              <div
+                key={g.groupId || g.tempId}
+                className={`group-item ${index % 2 === 0 ? 'even' : 'odd'}`}
+              >
+                <div className="item-content" onClick={() => handleOpenGroupDialog(g)}>
+                  <ReusableLight
+                    status={lightProps.status}
+                    comment={lightProps.tooltip}
+                    onlineColor={lightProps.onlineColor}
+                    offlineColor={lightProps.offlineColor}
+                    size={16}
+                  />
+                  <span className="group-name-text">
+                    {g.groupName}
+                  </span>
+                </div>
+                <div className="item-actions">
+                  <button
+                    className="edit-button action-btn"
+                    disabled={isBlocked}
+                    onClick={(e) => { e.stopPropagation(); handleOpenGroupDialog(g); }}
+                  >
+                    <MdEdit size={16} />
+                  </button>
+                  <button
+                    className="delete-button action-btn"
+                    disabled={isBlocked}
+                    onClick={(e) => { e.stopPropagation(); handleOpenDeleteDialog(g); }}
+                  >
+                    <FaTrash size={16} />
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
+      </div>
 
-        <div className="pagination">
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i}
-              className={`page-button ${currentPage === i + 1 ? "active" : ""}`}
-              onClick={() => paginate(i + 1)}
-            >
-              {i + 1}
-            </button>
-          ))}
-        </div>
+      <div className="pagination-dots">
+        {currentPage > 1 && (
+          <span className="arrow" onClick={() => paginate(currentPage - 1)}>
+            ‹
+          </span>
+        )}
+        {Array.from({ length: totalPages }, (_, i) => (
+          <span
+            key={i}
+            className={`dot ${currentPage === i + 1 ? "active" : ""}`}
+            onClick={() => paginate(i + 1)}
+          >
+            {i + 1}
+          </span>
+        ))}
+        {currentPage < totalPages && (
+          <span className="arrow" onClick={() => paginate(currentPage + 1)}>
+            ›
+          </span>
+        )}
       </div>
 
       <AddEditGroupDialog

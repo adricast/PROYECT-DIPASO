@@ -1,4 +1,4 @@
 export const groupRouteApi = {
-  group: "/groups/",
+  group: "/iam-user-groups/",
  
 };

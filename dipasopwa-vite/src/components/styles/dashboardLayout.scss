@@ -1,19 +1,86 @@
+/* Estilos del dashboard - Mobile First */
 .dashboard-container {
   display: flex;
   min-height: 100vh;
-  width: 99vw;
-  
+  width: 100%; /* Mejor que 99vw para evitar scroll horizontal */
   background-color: #f3f4f6;
+  position: relative;
+  overflow: hidden; /* Importante para que el sidebar oculto no cause scroll */
+}
+
+/* Sidebar para móviles */
+aside.mobile {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px; /* Ancho del sidebar móvil */
+  height: 100%;
+  background-color: #624A89;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+  transform: translateX(-100%); /* Oculto por defecto a la izquierda */
+  transition: transform 0.3s ease-in-out;
+  z-index: 1000; /* Asegura que esté por encima del contenido */
   
-  aside.desktop {
-    width: 80px; // 🔑 Sidebar fijo
-    background-color: #fff;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  &.open {
+    transform: translateX(0); /* Se desliza para mostrarse */
+  }
+}
+
+/* Sidebar de escritorio (oculto en móviles) */
+aside.desktop {
+  display: none;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-left: 0; /* No tiene padding a la izquierda en móviles */
+  transition: padding-left 0.3s ease-in-out;
+  
+  header {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between; // separa en 3 secciones
-    padding: 1rem 0;
+    justify-content: space-between;
+    align-items: center;
+    height: 30px;
+    padding: 2px 10px;
+    
+    .mobile-menu-toggle {
+      // Estilos para el botón de menú hamburguesa
+      display: block;
+      cursor: pointer;
+    }
+  }
+
+  main {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+  }
+}
+
+
+
+@media (min-width: 768px) {
+  .dashboard-container {
+    width: 100vw;
+    flex-direction: row; /* En desktop, el sidebar y el contenido están en fila */
+  }
+
+  aside.mobile {
+    display: none;
+  }
+
+  aside.desktop {
+    display: flex;
+    width: 80px; /* Ancho fijo para el sidebar de escritorio */
     background-color: #624A89;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1rem 0;
+    
+    // ... Todos tus estilos de sidebar de escritorio (branch-selector, nav, user-profile) aquí
     .branch-selector {
       position: relative;
       width: 60px;
@@ -51,8 +118,6 @@
           background: #624A89;
         }
       }
-
-      /* Dropdown container */
       .branch-dropdown {
         position: absolute;
         top: 100%;
@@ -76,20 +141,16 @@
           }
         }
       }
-
       &.open .branch-dropdown {
         display: flex;
       }
     }
-
-
     nav {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
-
     .user-profile {
       display: flex;
       flex-direction: column;
@@ -109,7 +170,6 @@
         cursor: pointer;
         border: 2px solid #624A89;
       }
-
       .menu {
         position: absolute;
         bottom: 60px;
@@ -129,15 +189,12 @@
           padding: 0.5rem 1rem;
           text-align: left;
           cursor: pointer;
-
           font-size: 0.70rem;
-
           &:hover {
             background-color: #2b062a;
           }
         }
       }
-
       &.open .menu {
         display: flex;
       }
@@ -145,55 +202,17 @@
   }
 
   .main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      height: 30px;
-      padding: 2px;
-      padding-left: 10px;
-      
-      h1 {
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: #200824;
-      }
+    padding-left: 80px; /* Padding para hacer espacio al sidebar de escritorio */
+    header .mobile-menu-toggle {
+      display: none;
     }
-
     main {
-      
-      flex: 1;
       padding: 2rem;
-      overflow-y: auto;
     }
+  }
+  @media (min-width: 1020px) {
+  .dashboard-container {
+    width:  100vw;
   }
 }
-@media (max-width: 768px) {
-  .dashboard-container {
- 
-  background-color: #f3f4f6;
-
-    aside.desktop {
-       width: 60px;
-        .branch-selector {
-           width: 50px;
-           .branch-card {
-                text-align: center;
-              .branch-id {
-                  font-size: 0.65rem;
-                
-                }
-
-                .branch-name {
-                  font-size: 0.45rem;
-                  
-              }
-           }   
-        }
-    }
-  }
 }

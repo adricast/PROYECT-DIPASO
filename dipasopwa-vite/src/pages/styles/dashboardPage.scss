@@ -1,13 +1,19 @@
 /* Container de widgets */
 .widget-container {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); // 2 widgets por fila
+  // Con esta línea, no necesitas una media query para cambiar la cantidad de columnas
+  // Se adaptará automáticamente según el tamaño de la pantalla
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
-  height: 90%;
-  min-height: 550px;
+  
+  // Eliminamos estas propiedades para evitar que el contenido se encoja
+  // La altura se adaptará a los elementos internos
+  height: auto;
+  min-height: auto;
 
   box-sizing: border-box;
   background-color: transparent;
+  width: 100%; // Aseguramos que ocupe todo el ancho disponible
 }
 
 /* Widgets */
@@ -22,20 +28,19 @@
   align-items: center;
   transition: box-shadow 0.3s ease;
   overflow: hidden;
-  min-height: 180px; // más compacto
+  min-height: 180px;
 
   &:hover {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
   }
 }
 
-/* Colores por widget */
+/* El resto de tus estilos están correctos y no necesitan cambios */
 .widget1 { background-color: hsl(210, 5%, 91%); }
 .widget2 { background-color: hsl(210, 5%, 94%); }
 .widget3 { background-color: hsl(210, 5%, 96%); }
 .widget4 { background-color: hsl(210, 5%, 98%); }
 
-/* Imagen de perfil */
 .content-img img {
   width: 70px;
   height: 70px;
@@ -44,13 +49,10 @@
   border: 2px solid #ddd;
   margin-bottom: 10px;
   transition: border-color 0.3s ease;
-
-  &:hover {
-    border-color: #3498db;
-  }
+  
+  &:hover { border-color: #3498db; }
 }
 
-/* Texto en widgets */
 .content-text {
   font-weight: 600;
   color: #2c3e50;
@@ -60,7 +62,6 @@
   word-break: break-word;
 }
 
-/* Reloj analógico */
 .clock {
   position: relative;
   width: 90px;
@@ -85,7 +86,6 @@
 .hand.minute { width: 35%; height: 3px; background-color: #2ecc71; }
 .hand.second { width: 40%; height: 2px; background-color: #e74c3c; }
 
-/* Hora digital */
 .digital-time {
   font-family: "Courier New", Courier, monospace;
   font-weight: bold;
@@ -100,43 +100,17 @@
   text-align: center;
   color: #34495e;
 }
-/* Imagen de la empresa/logo */
+
 .item-img {
-  width: 90px;          // tamaño base
+  width: 90px;
   height: 90px;
   object-fit: cover;
-  border-radius: 50%;   // opcional, si quieres redonda
+  border-radius: 50%;
   border: 2px solid #ddd;
   margin-bottom: 10px;
   transition: border-color 0.3s ease;
 
   &:hover {
     border-color: #3498db;
-  }
-}
-/* Responsive: móviles y pantallas pequeñas */
-@media (max-width: 768px) {
-
-  .widget-container {
-    grid-template-columns: 1fr; // 1 widget por fila
-    min-height: auto;
-    height: auto;
-    
-    overflow-y: auto;
-  }
-
-  .widget {
-    min-height: 150px;
-    padding: 12px;
-  }
-
-  .content-img img { width: 60px; height: 60px; }
-  .clock { width: 70px; height: 70px; }
-  .digital-time { font-size: 0.8rem; }
-  .digital-date { font-size: 0.7rem; }
-
-  .item-img {
-    width: 70px;
-    height: 70px;
   }
 }

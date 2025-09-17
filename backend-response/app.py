@@ -13,7 +13,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.register_blueprint(ping_bp, url_prefix='/api')  # <-- ahora /api/ping funciona
 
 app.register_blueprint(auth_bp)
-app.register_blueprint(group_bp, url_prefix='/api/groups') # <--- CAMBIA ESTO
+app.register_blueprint(group_bp, url_prefix='/api/iam-user-groups') # <--- CAMBIA ESTO
 app.register_blueprint(user_bp, url_prefix='/api/users') # <--- CAMBIA ESTO
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import "./styles/dashboardPage.scss";
+
 interface DashboardContext {
   userName: string;
   selectedBranch: string;
@@ -10,7 +11,7 @@ interface DashboardContext {
 
 const DashboardHome: React.FC = () => {
   const [time, setTime] = useState(new Date());
-  const { userName, selectedBranch,branches } = useOutletContext<DashboardContext>();
+  const { userName, selectedBranch, branches } = useOutletContext<DashboardContext>();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -31,10 +32,11 @@ const DashboardHome: React.FC = () => {
       <div className="widget widget1">
         <div className="content-img">
           <img
-            src="https://www.dropbox.com/scl/fi/1sg0k9814ewulaq4xz97b/desarrollomovil2.png?rlkey=37j08p3etwo0ncgy2nt8jxv11&st=7xuq8goo&dl=0https://www.dropbox.com/scl/fi/1sg0k9814ewulaq4xz97b/desarrollomovil2.png?rlkey=37j08p3etwo0ncgy2nt8jxv11&st=7xuq8goo&raw=1"
+            src="https://www.dropbox.com/scl/fi/1sg0k9814ewulaq4xz97b/desarrollomovil2.png?rlkey=37j08p3etwo0ncgy2nt8jxv11&raw=1"
             alt="Usuario"
+            // Corregimos el onError para que use una URL de respaldo si la principal falla
             onError={(e) =>
-              (e.currentTarget.src = "https://www.dropbox.com/scl/fi/1sg0k9814ewulaq4xz97b/desarrollomovil2.png?rlkey=37j08p3etwo0ncgy2nt8jxv11&st=7xuq8goo&dl=0https://www.dropbox.com/scl/fi/1sg0k9814ewulaq4xz97b/desarrollomovil2.png?rlkey=37j08p3etwo0ncgy2nt8jxv11&st=7xuq8goo&raw=1")
+              (e.currentTarget.src = "https://via.placeholder.com/70")
             }
           />
         </div>
@@ -47,14 +49,13 @@ const DashboardHome: React.FC = () => {
         <h2 className="widget-title">Empresa Seleccionada</h2>
         <div className="content-text">
           <img
-            src="https://www.dropbox.com/scl/fi/1jdub47m018ltwb5bbwak/icon-512x512.png?rlkey=cqgrkq5a000yjn0d6rndcqw0y&st=mh3pl2cf&raw=1"
+            src="https://www.dropbox.com/scl/fi/1jdub47m018ltwb5bbwak/icon-512x512.png?rlkey=cqgrkq5a000yjn0d6rndcqw0y&raw=1"
             alt="Logo Empresa"
             className="item-img"
           />
           <div><strong>Dipaso</strong></div>
           <div style={{ marginTop: "6px" }}>
             <strong>Sucursal:</strong> {branches.find(b => b.id === selectedBranch)?.name || "Desconocida"}
-
           </div>
         </div>
       </div>
