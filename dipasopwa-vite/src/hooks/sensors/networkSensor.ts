@@ -9,90 +9,80 @@ export type NetworkEvents = {
 
 export const networkSensor = mitt<NetworkEvents>();
 
-export let isOnline = navigator.onLine;
-export let serverOnline = false;
+export const networkState = {
+  isOnline: navigator.onLine,
+  serverOnline: false,
+};
 
 const BACKEND_URL = "http://127.0.0.1:5000/api";
-const isLocalBackend =
-  BACKEND_URL.includes("127.0.0.1") || BACKEND_URL.includes("localhost");
+const PING_URL = `${BACKEND_URL}/ping`;
 
-const PING_INTERVAL = 5000;
-let pingInterval: number | null = null;
-
-const checkServerStatus = async () => {
+/**
+ * @function checkServerStatus
+ * @description Verifica el estado del servidor mediante una petición 'ping'.
+ * @returns {Promise<boolean>} Retorna true si el servidor está online, false si no.
+ */
+export const checkServerStatus = async (): Promise<boolean> => {
+  if (!networkState.isOnline) {
+    // No se puede verificar si la red principal está offline.
+    return false;
+  }
+  
   try {
-    const res = await fetch(`${BACKEND_URL}/ping`);
+    const res = await fetch(PING_URL);
     if (res.ok) {
-      if (!serverOnline) {
-        serverOnline = true;
+      if (!networkState.serverOnline) {
+        networkState.serverOnline = true;
         networkSensor.emit("server-online");
         console.log("✅ Servidor online detectado.");
       }
+      return true;
     } else {
-      if (serverOnline) {
-        serverOnline = false;
+      if (networkState.serverOnline) {
+        networkState.serverOnline = false;
         networkSensor.emit("server-offline");
         console.log("❌ Servidor respondió mal.");
       }
+      return false;
     }
   } catch (error) {
-    if (serverOnline) {
-      serverOnline = false;
-      networkSensor.emit("server-offline");
-      console.log("❌ Servidor offline (error conexión).", error);
+    if (networkState.serverOnline) {
+      networkState.serverOnline = false;
+      networkSensor.emit("server-offline" );
+      console.log("❌ Servidor offline (error de conexión)."+error);
     }
+    return false;
   }
 };
 
-const startServerPing = () => {
-  if (pingInterval !== null) return;
-  pingInterval = window.setInterval(checkServerStatus, PING_INTERVAL);
-};
-
-const stopServerPing = () => {
-  if (pingInterval !== null) {
-    clearInterval(pingInterval);
-    pingInterval = null;
-  }
-};
-
-const updateNetworkStatus = () => {
+/**
+ * @function updateNetworkStatus
+ * @description Actualiza el estado de la red (online/offline).
+ */
+const updateNetworkStatus = async () => {
   const newIsOnline = navigator.onLine;
-
-  if (newIsOnline !== isOnline) {
-    isOnline = newIsOnline;
-    if (isOnline) {
-      networkSensor.emit("online");
-      console.log("🌐 Internet conectado");
-    } else {
-      networkSensor.emit("offline");
-      console.log("🌐 Internet desconectado");
-    }
+  if (newIsOnline !== networkState.isOnline) {
+    networkState.isOnline = newIsOnline;
+    networkSensor.emit(newIsOnline ? "online" : "offline");
+    console.log(newIsOnline ? "🌐 Internet conectado" : "🌐 Internet desconectado");
   }
-
-  // 👇 IMPORTANTE:
-  // Si el backend es local → siempre seguimos haciendo ping
-  // Si es remoto → solo ping si hay internet
-  if (isLocalBackend || isOnline) {
-    checkServerStatus();
-    startServerPing();
-  } else {
-    stopServerPing();
+  
+  // Realiza una verificación inicial del servidor solo al cambiar a online.
+  if (newIsOnline) {
+      checkServerStatus();
   }
 };
 
-const checkInitialStatus = () => {
-  if (isLocalBackend || navigator.onLine) {
-    checkServerStatus();
-    startServerPing();
-  }
-};
+// Se detecta el estado inicial de la red.
+(async () => {
+  updateNetworkStatus();
+})();
 
+// Escucha los eventos de red nativos del navegador.
 window.addEventListener("online", updateNetworkStatus);
 window.addEventListener("offline", updateNetworkStatus);
 
-checkInitialStatus();
-
+// Exporta una función para que otros módulos se suscriban a los cambios.
 export const onNetworkChange = (
   onlineCallback: () => void,
   offlineCallback: () => void,
@@ -101,17 +91,13 @@ export const onNetworkChange = (
 ) => {
   networkSensor.on("online", onlineCallback);
   networkSensor.on("offline", offlineCallback);
-  if (serverOnlineCallback)
-    networkSensor.on("server-online", serverOnlineCallback);
-  if (serverOfflineCallback)
-    networkSensor.on("server-offline", serverOfflineCallback);
+  if (serverOnlineCallback) networkSensor.on("server-online", serverOnlineCallback);
+  if (serverOfflineCallback) networkSensor.on("server-offline", serverOfflineCallback);
 
   return () => {
     networkSensor.off("online", onlineCallback);
     networkSensor.off("offline", offlineCallback);
-    if (serverOnlineCallback)
-      networkSensor.off("server-online", serverOnlineCallback);
-    if (serverOfflineCallback)
-      networkSensor.off("server-offline", serverOfflineCallback);
+    if (serverOnlineCallback) networkSensor.off("server-online", serverOnlineCallback);
+    if (serverOfflineCallback) networkSensor.off("server-offline", serverOfflineCallback);
   };
 };

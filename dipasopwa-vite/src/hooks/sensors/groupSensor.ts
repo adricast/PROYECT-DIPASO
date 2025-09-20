@@ -1,8 +1,8 @@
 // src/sensors/groupSensor.ts
 import { SyncSensor } from "./syncSensor";
 import type { Group } from "../../entities/api/groupAPI";
-import { syncPendingGroups } from "../../workers/syncGroupWorker";
-import { registerSyncTrigger } from "./syncOrchestrator"; // ⬅️ Importamos el orquestador
+import { syncPendingGroups } from '../../workers/syncGroupWorker'; // ⬅️ Corrected this line
+import { registerSyncTrigger } from "./syncOrchestrator";
 
 export const groupSensor: SyncSensor<Group> = new SyncSensor<Group>();
 

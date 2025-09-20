@@ -1,12 +1,32 @@
+// src/entities/api/groupAPI.ts
 import type { User } from "./userAPI";
 
-export type GroupSyncStatus = "pending" | "synced" | "deleted"| "in-progress" | "updated";
+export type GroupSyncStatus =
+  | "pending"      // creado offline, esperando sincronización
+  | "in-progress"  // en proceso de enviar al backend
+  | "synced"       // sincronizado correctamente
+  | "updated"      // modificado offline después de haber estado sincronizado
+  | "deleted"      // marcado para eliminar
+  | "failed"      // error al sincronizar
+  | "backend";
 
 export interface Group {
-  groupId?: string | number; // ✅ Cambiado a groupId para coincidir con el keyPath de IndexedDB
+  /** ✅ NUEVO: ID único local para IndexedDB (tempId o groupId) */
+  id?: string | number;
+
+  /** ID oficial del servidor (si ya existe en backend) */
+  groupId?: string | number;
   tempId?: string | number;
-  groupName: string; // ✅ Cambiado a groupName
+
+  /** Nombre del grupo */
+  groupName: string;
+
+  /** Descripción opcional */
   description?: string;
+
+  /** Relación con usuarios */
   users?: User[];
-  syncStatus?: GroupSyncStatus;
+
+  /** Estado de sincronización */
+  syncStatus: GroupSyncStatus;
 }

@@ -1,179 +1,214 @@
-import { GroupRepository } from "../db/groupRepository";
-import type { Group, GroupSyncStatus } from "../../entities/api/groupAPI";
-import { api } from "../../services/api";
-import { groupSensor } from "../../hooks/sensors/groupSensor";
-import { groupRouteApi } from "../../config/groupConfig";
-import { AuthRepository } from "../db/authRepository";
+import { GroupRepository } from "./../../services/db/groupRepository";
+import type { Group, GroupSyncStatus } from "./../../entities/api/groupAPI";
+import { api } from "./../../services/api";
+import { groupRouteApi } from "./../../config/groupConfig";
+import { AuthRepository } from "./../../services/db/authRepository";
+import { groupSensor } from "./../../hooks/sensors/groupSensor";
 
 const groupRepo = new GroupRepository();
 const authRepo = new AuthRepository();
 const TOKEN_KEY = "auth_token";
 
-// -----------------------
-// FUNCIÓN PARA OBTENER GRUPOS
-// -----------------------
-export const getGroups = async (): Promise<Group[]> => {
- const token = await authRepo.getToken(TOKEN_KEY);
+/**
+ * Función centralizada para registrar el estado final de una operación de sincronización.
+ * @param action El tipo de acción intentada ('add', 'update', 'delete').
+ * @param finalStatus El estado final del intento ('synced' o 'failed').
+ */
+function logSyncStatus(action: string, finalStatus: string) {
+  console.log(`action: ${action} module:groups-user final-status: ${finalStatus};`);
+}
 
- if (token) {
- try {
- const response = await api.get<Group[]>(groupRouteApi.group, {
- headers: { Authorization: `Bearer ${token.token}` },
- });
+/**
+ * Función para mapear la respuesta de la API a la interfaz de Group.
+ * @param apiGroup El objeto de grupo tal como viene de la API.
+ * @returns El objeto de grupo con los nombres de propiedades corregidos.
+ */
+function mapGroupFromApi(apiGroup: any): Group {
+  return {
+    groupId: apiGroup.user_group_id,
+    groupName: apiGroup.group_name,
+    description: apiGroup.description,
+    users: [],
+    syncStatus: "synced",
+  };
+}
 
- // CAMBIO CLAVE: Mapear user_group_id a groupId
- const syncedGroups = response.data.map((g: any) => ({
- groupId: g.user_group_id, // Usamos la nueva columna del backend
- groupName: g.group_name,
- description: g.description,
- users: [],
- syncStatus: "synced" as GroupSyncStatus,
- }));
 
- for (const group of syncedGroups) {
- if (group.groupId) {
- await groupRepo.saveGroup(group);
- } else {
- console.warn("⚠️ Grupo recibido del servidor sin groupId:", group);
- }
- }
- } catch (error) {
- console.error(
- "❌ Error al obtener grupos del servidor o al guardar en IndexedDB.",
- error
- );
- }
- }
- return await groupRepo.getAllGroups();
-};
+/***********************/
+/* Manejo de errores de sincronización */
+async function handleApiError(group: Group, error: unknown) {
+  const isNotFound = (error as any)?.response?.status === 404;
+  const isConflict = (error as any)?.response?.status === 409;
 
-// -----------------------
-// FUNCIÓN PARA CREAR UN GRUPO
-// -----------------------
-export const createGroup = async (
- newGroup: Omit<Group, "groupId" | "syncStatus">
-): Promise<Group | null> => {
- const token = await authRepo.getToken(TOKEN_KEY);
- const tempId = Date.now().toString();
- const pendingGroup: Group = {
- ...newGroup,
- groupId: tempId,
- tempId,
- groupName: newGroup.groupName,
- syncStatus: "pending" as GroupSyncStatus,
- };
+  if (isNotFound) {
+    console.log(`✅ Grupo ${group.groupId} no encontrado en el servidor, eliminando de IndexedDB.`);
+    const idToDelete = group.groupId ?? group.tempId;
+    if (idToDelete) {
+      await groupRepo.deleteGroup(idToDelete);
+      groupSensor.emit("itemDeleted", idToDelete);
+    }
+    logSyncStatus(group.syncStatus, "synced");
+  } else if (isConflict) {
+    console.error(`❌ Conflicto al sincronizar el grupo ${group.groupId}:`, error);
+    await groupRepo.saveGroup({ ...group, syncStatus: "failed" });
+    groupSensor.emit("item-failed", { item: group, error });
+    logSyncStatus(group.syncStatus, "failed");
+  } else {
+    console.error(`❌ Error al sincronizar el grupo ${group.groupId}:`, error);
+    await groupRepo.saveGroup({ ...group, syncStatus: "failed" });
+    groupSensor.emit("item-failed", { item: group, error });
+    logSyncStatus(group.syncStatus, "failed");
+  }
+}
 
- if (token) {
- try {
- await groupRepo.saveGroup({ ...pendingGroup, syncStatus: "in-progress" });
+/***********************/
+/* Funciones de servicio público */
+export async function getGroups(): Promise<Group[]> {
+  try {
+    const response = await api.get<any[]>(groupRouteApi.group);
+    const apiGroups = response.data.map(mapGroupFromApi);
+    const localGroups = await groupRepo.getAllGroups();
+    return [...localGroups, ...apiGroups];
+  } catch (error) {
+    console.error("Error al obtener grupos:", error);
+    return await groupRepo.getAllGroups();
+  }
+}
 
- const response = await api.post(groupRouteApi.group, {
- group_name: newGroup.groupName,
- description: newGroup.description,
- }, {
- headers: { Authorization: `Bearer ${token.token}` },
- });
 
- // CAMBIO CLAVE: Mapear user_group_id a groupId
- const serverGroup: Group = {
- groupId: response.data.user_group_id, // Usamos la nueva columna del backend
- groupName: response.data.group_name,
- description: response.data.description,
- users: [],
- syncStatus: "synced" as GroupSyncStatus,
- };
+export async function createGroup(group: Omit<Group, "syncStatus">): Promise<Group> {
+  const tempId = `temp-${Date.now()}`;
+  // ✅ CORRECCIÓN: Asignar el tempId a la propiedad groupId para que la DB tenga una clave.
+  return await groupRepo.saveGroup({ ...group, groupId: tempId, tempId, syncStatus: "pending" });
+}
+export async function updateGroup(group: Group): Promise<Group> {
+  const newSyncStatus = group.tempId 
+    ? "pending"
+    : group.syncStatus === "synced"
+    ? "updated"
+    : group.syncStatus;
+    
+  return await groupRepo.saveGroup({ ...group, syncStatus: newSyncStatus });
+}
 
- await groupRepo.deleteGroup(tempId);
- await groupRepo.saveGroup(serverGroup);
- return serverGroup;
- } catch (error) {
- console.error("❌ Error al crear online. Guardando como pendiente.", error);
- groupSensor.itemFailed(pendingGroup, error);
- return await groupRepo.saveGroup(pendingGroup);
- }
- } else {
- console.log("✏️ Creando grupo offline. Marcando como pendiente.");
- return await groupRepo.saveGroup(pendingGroup);
- }
-};
+export async function deleteGroup(group: Group): Promise<Group> {
+  return await groupRepo.saveGroup({ ...group, syncStatus: "deleted" });
+}
 
-// -----------------------
-// FUNCIÓN PARA ACTUALIZAR UN GRUPO
-// -----------------------
-export const updateGroup = async (
- updatedGroup: Group
-): Promise<Group | null> => {
- const token = await authRepo.getToken(TOKEN_KEY);
+/***********************/
+/* Función principal de sincronización */
+export async function syncPendingGroups() {
+  const groupsToAdd = await groupRepo.getGroupsBySyncStatus("pending");
+  const groupsToUpdate = await groupRepo.getGroupsBySyncStatus("updated");
+  const groupsToDelete = await groupRepo.getGroupsBySyncStatus("deleted");
 
- const isSynced = updatedGroup.syncStatus === "synced" || updatedGroup.syncStatus === "updated";
+  const allGroups = [...groupsToAdd, ...groupsToUpdate, ...groupsToDelete];
 
- if (token && isSynced) {
- try {
- await groupRepo.saveGroup({ ...updatedGroup, syncStatus: "in-progress" });
+  if (!allGroups.length) {
+    console.log("✅ No hay grupos pendientes para sincronizar.");
+    groupSensor.success();
+    return;
+  }
 
- const response = await api.put(
- // CAMBIO CLAVE: La URL ahora usa la nueva columna
- `${groupRouteApi.group}${updatedGroup.groupId}`,
- {
- group_name: updatedGroup.groupName,
- description: updatedGroup.description,
- },
- {
- headers: { Authorization: `Bearer ${token.token}` },
- }
- );
+  groupSensor.start();
 
- // CAMBIO CLAVE: Mapear user_group_id a groupId
- const serverGroup: Group = {
- groupId: response.data.user_group_id, // Usamos la nueva columna del backend
- groupName: response.data.group_name,
- description: response.data.description,
- users: [],
- syncStatus: "synced" as GroupSyncStatus,
- };
+  const token = await authRepo.getToken(TOKEN_KEY);
+  if (!token) {
+    console.error("❌ Token no disponible, sincronización fallida.");
+    groupSensor.failure(new Error("Token no disponible"));
+    return;
+  }
 
- await groupRepo.saveGroup(serverGroup);
- return serverGroup;
- } catch (error) {
- console.error("❌ Error al actualizar online. Marcando como 'updated'.", error);
- groupSensor.itemFailed(updatedGroup, error);
- const pendingGroup = { ...updatedGroup, syncStatus: "updated" as GroupSyncStatus };
- return await groupRepo.saveGroup(pendingGroup);
- }
- } else {
- console.log("✏️ Actualizando grupo offline. Marcando como 'updated'.");
- const pendingGroup = { ...updatedGroup, syncStatus: "updated" as GroupSyncStatus };
- return await groupRepo.saveGroup(pendingGroup);
- }
-};
+  let hasError = false;
 
-// -----------------------
-// FUNCIÓN PARA ELIMINAR UN GRUPO
-// -----------------------
-export const deleteGroup = async (group: Group): Promise<boolean> => {
- const token = await authRepo.getToken(TOKEN_KEY);
- const idOrTempId = group.groupId || group.tempId!;
+  for (const group of allGroups) {
+    const originalStatus: GroupSyncStatus = group.syncStatus;
 
- if (token && group.syncStatus === "synced") {
- try {
- await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
- // CAMBIO CLAVE: La URL ahora usa la nueva columna
- await api.delete(`${groupRouteApi.group}${group.groupId}`, {
- headers: { Authorization: `Bearer ${token.token}` },
- });
- await groupRepo.deleteGroup(idOrTempId);
- groupSensor.emit("itemDeleted", idOrTempId);
- return true;
- } catch (error) {
- console.error("❌ Error al eliminar online. Marcando como 'deleted'.", error);
- groupSensor.itemFailed(group, error);
- await groupRepo.saveGroup({ ...group, syncStatus: "deleted" as GroupSyncStatus });
- groupSensor.emit("itemDeleted", idOrTempId);
- return false;
- }
- } else {
- await groupRepo.deleteGroup(idOrTempId);
- groupSensor.emit("itemDeleted", idOrTempId);
- return true;
- }
-};
+    try {
+      // Marcamos como "in-progress"
+      await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" });
+
+      /***********************/
+      /* CREACIÓN */
+      if (originalStatus === "pending") {
+        const newGroupData = {
+          group_name: group.groupName,
+          description: group.description,
+        };
+        const response = await api.post<Group>(groupRouteApi.group, newGroupData, {
+          headers: { Authorization: `Bearer ${token.token}` },
+        });
+
+        const syncedGroup: Group = {
+          ...group,
+          groupId: response.data.groupId,
+          tempId: undefined, // ✅ CORRECCIÓN: Eliminar el tempId explícitamente
+          syncStatus: "synced",
+        };
+        
+        // Eliminar el grupo temporal y luego guardar el nuevo registro con el ID oficial.
+        if (group.tempId !== undefined) {
+          await groupRepo.deleteGroup(group.tempId);
+        }
+        await groupRepo.saveGroup(syncedGroup);
+
+        groupSensor.itemSynced(syncedGroup);
+        logSyncStatus("pending", "synced");
+
+        /***********************/
+        /* ACTUALIZACIÓN */
+      } else if (originalStatus === "updated") {
+        if (!group.groupId) {
+          console.log(`⚠️ Grupo sin groupId, se tratará como creación.`);
+          await groupRepo.saveGroup({ ...group, syncStatus: "pending" });
+          logSyncStatus("updated", "failed");
+          continue;
+        }
+
+        const updateData = {
+          group_name: group.groupName,
+          description: group.description,
+        };
+        await api.put(`${groupRouteApi.group}/${group.groupId}`, updateData, {
+          headers: { Authorization: `Bearer ${token.token}` },
+        });
+
+        await groupRepo.saveGroup({ ...group, syncStatus: "synced" });
+        groupSensor.itemSynced(group);
+        logSyncStatus("updated", "synced");
+
+        /***********************/
+        /* ELIMINACIÓN */
+      } else if (originalStatus === "deleted") {
+        if (!group.groupId) {
+          console.log(`⚠️ Grupo sin groupId, eliminando solo localmente.`);
+          if (group.tempId !== undefined) {
+            await groupRepo.deleteGroup(group.tempId);
+            groupSensor.emit("itemDeleted", group.tempId);
+          }
+          logSyncStatus("deleted", "synced");
+          continue;
+        }
+
+        await api.delete(`${groupRouteApi.group}/${group.groupId}`, {
+          headers: { Authorization: `Bearer ${token.token}` },
+        });
+
+        if (group.groupId !== undefined) {
+          await groupRepo.deleteGroup(group.groupId);
+          groupSensor.emit("itemDeleted", group.groupId);
+        }
+        logSyncStatus("deleted", "synced");
+      }
+    } catch (error) {
+      hasError = true;
+      await handleApiError(group, error);
+    }
+  }
+
+  if (hasError) {
+    groupSensor.failure(new Error("Algunos grupos no se pudieron sincronizar."));
+  } else {
+    groupSensor.success();
+  }
+}

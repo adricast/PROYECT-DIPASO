@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import DataTable from "./../../../../components/layout/datatableLayout";
 import AddEditGroupDialog from "./addeditgroupdialog";
 import DeleteConfirmationDialog from "./deleteconfirmationdialog";
@@ -8,7 +7,7 @@ import { FaUserEdit, FaTrash, FaPlus } from "react-icons/fa";
 import ReusableLight from "../../../../components/layout/indicatorlight1ledLayout";
 
 const UserManagementPage: React.FC = () => {
-  const navigate = useNavigate();
+ 
 
   // --- Estados para el control de los modales ---
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);

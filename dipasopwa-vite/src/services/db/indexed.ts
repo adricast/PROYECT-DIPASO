@@ -7,7 +7,7 @@ let dbInstance: IDBPDatabase<dipasopwa> | null = null;
 export const getDB = async () => {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<dipasopwa>("dipasopwa-db", 4, { // versión 4
+  dbInstance = await openDB<dipasopwa>("dipasopwa-db", 5, { // ✅ VERSIÓN INCREMENTADA A 5
     upgrade(db, _oldVersion) {
       // --- Auths ---
       if (!db.objectStoreNames.contains("auths")) {
@@ -23,10 +23,17 @@ export const getDB = async () => {
       }
 
       // --- Groups ---
+      // ✅ CORRECCIÓN: Se crea el store y todos sus índices en un solo lugar
       if (!db.objectStoreNames.contains("groups")) {
-        const groupStore = db.createObjectStore("groups", { keyPath: "groupId" });
+        const groupStore = db.createObjectStore("groups", { keyPath: "groupId" }); // ✅ keyPath definido como groupId
         groupStore.createIndex("by_syncStatus", "syncStatus");
         groupStore.createIndex("by_tempId", "tempId");
+        groupStore.createIndex("by_groupId", "groupId", { unique: true }); // ✅ NUEVO ÍNDICE
+      }
+      
+      // ✅ Se asegura de crear el store `groups_log` si no existe
+      if (!db.objectStoreNames.contains("groups_log")) {
+        db.createObjectStore("groups_log", { keyPath: "loggedAt" });
       }
 
       // --- Users ---
