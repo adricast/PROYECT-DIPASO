@@ -1,3 +1,4 @@
+// src/hooks/sensors/networkSensor.ts
 import mitt from "mitt";
 
 export type NetworkEvents = {

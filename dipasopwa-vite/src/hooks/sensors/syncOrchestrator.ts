@@ -1,4 +1,4 @@
-// src/sensors/syncOrchestrator.ts
+// src/hooks/sensors/syncOrchestrator.ts
 import { networkSensor } from "./networkSensor";
 import { syncPendingGroups, syncFromBackend } from '../../workers/syncGroupWorker'; // ✅ Importa la nueva función
 

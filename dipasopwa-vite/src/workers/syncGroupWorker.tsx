@@ -6,6 +6,7 @@ import { groupRouteApi } from "./../config/groupConfig";
 import { AuthRepository } from "./../services/db/authRepository";
 import { groupSensor } from "./../hooks/sensors/groupSensor";
 import { networkState } from "../hooks/sensors/networkSensor";
+import { v4 as uuidv4 } from 'uuid';
 
 const groupRepo = new GroupRepository();
 const authRepo = new AuthRepository();
@@ -14,7 +15,10 @@ const TOKEN_KEY = "auth_token";
 /**
  * Función centralizada para registrar el estado final de una operación de sincronización.
  */
-function logSyncStatus(action: string, finalStatus: string) {
+async function logSyncStatus(group: Group, action: "add" | "update" | "delete", finalStatus: "synced" | "failed") {
+  // Asegurarse de que el objeto del log tiene un id, ya sea el del grupo o uno nuevo.
+  const logId = group.id || `log-${uuidv4()}`;
+  await groupRepo.logSyncedGroup({ ...group, id: logId }, action, finalStatus);
   console.log(`action: ${action} module:groups-user final-status: ${finalStatus};`);
 }
 
@@ -23,50 +27,79 @@ function logSyncStatus(action: string, finalStatus: string) {
  */
 function mapGroupFromApi(apiGroup: any): Group {
   return {
+    id: uuidv4(), // ✅ CORRECCIÓN: Genera un ID local único para el objeto.
     groupId: apiGroup.user_group_id,
     groupName: apiGroup.group_name,
     description: apiGroup.description,
     users: [],
     syncStatus: "backend" as GroupSyncStatus,
+    lastModifiedAt: apiGroup.last_modified_at || new Date().toISOString(),
   };
 }
 
 /**
  * Lógica para manejar errores de sincronización.
  */
-async function handleApiError(group: Group, error: unknown) {
+async function handleApiError(group: Group, action: "add" | "update" | "delete", error: unknown) {
   const isNotFound = (error as any)?.response?.status === 404;
   const isConflict = (error as any)?.response?.status === 409;
 
   if (isNotFound) {
     console.log(`✅ Grupo ${group.groupId} no encontrado en el servidor, eliminando de IndexedDB.`);
-    const idToDelete = group.groupId ?? group.tempId;
-    if (idToDelete) {
-      await groupRepo.deleteGroup(idToDelete);
-      groupSensor.emit("itemDeleted", idToDelete);
+    if (group.id) {
+      await groupRepo.deleteGroup(group.id);
+      groupSensor.emit("itemDeleted", group.id);
     }
-    logSyncStatus(group.syncStatus, "synced");
+    await logSyncStatus(group, action, "synced");
   } else if (isConflict) {
     console.error(`❌ Conflicto al sincronizar el grupo ${group.groupId}:`, error);
     await groupRepo.saveGroup({ ...group, syncStatus: "failed" as GroupSyncStatus });
-    groupSensor.emit("item-failed", { item: group, error });
-    logSyncStatus(group.syncStatus, "failed");
+    groupSensor.itemFailed(group, error);
+    await logSyncStatus(group, action, "failed");
   } else {
     console.error(`❌ Error al sincronizar el grupo ${group.groupId}:`, error);
     await groupRepo.saveGroup({ ...group, syncStatus: "failed" as GroupSyncStatus });
-    groupSensor.emit("item-failed", { item: group, error });
-    logSyncStatus(group.syncStatus, "failed");
+    groupSensor.itemFailed(group, error);
+    await logSyncStatus(group, action, "failed");
   }
 }
 
-/***********************/
-/* Funciones de sincronización */
-/***********************/
+/**
+ * Limpia los grupos que ya han sido sincronizados o han fallado de la base de datos principal.
+ */
+async function cleanupGroups() {
+  console.log("Limpiando registros de grupos sincronizados y fallidos...");
+  const syncedGroups = await groupRepo.getGroupsBySyncStatus("synced");
+  const failedGroups = await groupRepo.getGroupsBySyncStatus("failed");
+  const inProgressGroups = await groupRepo.getGroupsBySyncStatus("in-progress");
+
+  for (const group of [...syncedGroups, ...failedGroups, ...inProgressGroups]) {
+    // ✅ CORRECCIÓN CLAVE: Siempre eliminar usando el 'id' principal.
+    if (group.id) {
+      await groupRepo.deleteGroup(group.id);
+      groupSensor.emit("itemDeleted", group.id);
+    } else {
+      console.warn(`⚠️ Omitting deletion of malformed group record: ${JSON.stringify(group)}`);
+    }
+  }
+}
+
+//### **Funciones de sincronización**
+
 export async function syncFromBackend() {
+  if (!networkState.serverOnline) {
+    console.log("No hay conexión con el servidor. Sincronización desde backend cancelada.");
+    return;
+  }
   const token = await authRepo.getToken(TOKEN_KEY);
   if (!token) return;
 
   try {
+    const localBackendGroups = await groupRepo.getGroupsBySyncStatus("backend");
+    for (const group of localBackendGroups) {
+      await groupRepo.deleteGroup(group.id);
+    }
+
     const backendGroups = (await api.get(`${groupRouteApi.group}`, {
       headers: { Authorization: `Bearer ${token.token}` },
     })).data;
@@ -80,7 +113,7 @@ export async function syncFromBackend() {
         !backendGroupIds.has(localGroup.groupId as string | number) &&
         (localGroup.syncStatus === "backend" || localGroup.syncStatus === "synced")
       ) {
-        await groupRepo.deleteGroup(localGroup.groupId);
+        await groupRepo.deleteGroup(localGroup.id);
         console.log(`Grupo ${localGroup.groupId} eliminado localmente (no encontrado en backend).`);
       }
     }
@@ -89,28 +122,35 @@ export async function syncFromBackend() {
       const existingLocalGroup = await groupRepo.getGroupByGroupId(backendGroup.user_group_id);
       if (!existingLocalGroup) {
         const newGroup = mapGroupFromApi(backendGroup);
-        await groupRepo.saveGroup({ ...newGroup, syncStatus: "backend" as GroupSyncStatus });
+        await groupRepo.saveGroup(newGroup);
         console.log(`Nuevo grupo ${newGroup.groupId} guardado desde backend.`);
-      } else if (
-        existingLocalGroup.syncStatus === "backend" ||
-        existingLocalGroup.syncStatus === "synced"
-      ) {
-        const updatedGroup = {
-          ...existingLocalGroup,
-          groupName: backendGroup.group_name,
-          description: backendGroup.description,
-          syncStatus: "backend" as GroupSyncStatus,
-        };
-        await groupRepo.saveGroup(updatedGroup);
-        console.log(`Grupo ${updatedGroup.groupId} actualizado desde backend.`);
+      } else {
+        const backendLastModifiedAt = new Date(backendGroup.last_modified_at);
+        const localLastModifiedAt = new Date(existingLocalGroup.lastModifiedAt);
+
+        if (backendLastModifiedAt > localLastModifiedAt) {
+          const updatedGroup = mapGroupFromApi(backendGroup);
+          await groupRepo.saveGroup({ ...updatedGroup, id: existingLocalGroup.id });
+          console.log(`Grupo ${updatedGroup.groupId} actualizado desde backend (conflicto resuelto).`);
+        }
       }
     }
+
+    await cleanupGroups();
   } catch (error) {
     console.error("Error durante la sincronización inicial desde el backend:", error);
   }
 }
 
+/**
+ * Sincroniza los cambios del cliente al backend.
+ */
 export async function syncPendingGroups() {
+  if (!networkState.serverOnline) {
+    console.log("Sin conexión, posponiendo la sincronización de grupos pendientes.");
+    return;
+  }
+
   const groupsToAdd = await groupRepo.getGroupsBySyncStatus("pending");
   const groupsToUpdate = await groupRepo.getGroupsBySyncStatus("updated");
   const groupsToDelete = await groupRepo.getGroupsBySyncStatus("deleted");
@@ -122,7 +162,7 @@ export async function syncPendingGroups() {
     groupSensor.success();
     return;
   }
-  
+
   groupSensor.start();
 
   const token = await authRepo.getToken(TOKEN_KEY);
@@ -131,50 +171,48 @@ export async function syncPendingGroups() {
     groupSensor.failure(new Error("Token no disponible"));
     return;
   }
-  
+
   let hasError = false;
 
   for (const group of allGroups) {
     const originalStatus: GroupSyncStatus = group.syncStatus;
 
+    // ✅ CORRECCIÓN CLAVE: El grupo ya debe tener un 'id' válido, ya que fue guardado antes.
+    if (!group.id) {
+      console.error("❌ Grupo sin ID local, no se puede sincronizar.", group);
+      continue;
+    }
+
     try {
+      // Marcamos como "in-progress"
       await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" as GroupSyncStatus });
 
-      /***********************/
-      /* CREACIÓN */
       if (originalStatus === "pending") {
         const newGroupData = {
           group_name: group.groupName,
           description: group.description,
         };
-        const response = await api.post<Group>(groupRouteApi.group, newGroupData, {
+        const response = await api.post(groupRouteApi.group, newGroupData, {
           headers: { Authorization: `Bearer ${token.token}` },
         });
 
         const syncedGroup: Group = {
           ...group,
-          groupId: response.data.groupId,
-          tempId: undefined,
+          // ✅ CORRECCIÓN: Usamos el ID local del grupo original.
+          id: group.id,
+          groupId: response.data.user_group_id,
           syncStatus: "synced" as GroupSyncStatus,
+          tempId: undefined, // Eliminar el ID temporal
         };
-        
-        // ✅ CORRECCIÓN: Si el grupo fue creado offline, borra el registro con el tempId
-        if (group.tempId !== undefined) {
-          await groupRepo.deleteGroup(group.tempId);
-        }
 
-        // ✅ CORRECCIÓN: Guarda el nuevo grupo, ahora con el groupId como clave
         await groupRepo.saveGroup(syncedGroup);
-
+        await logSyncStatus(syncedGroup, "add", "synced");
         groupSensor.itemSynced(syncedGroup);
-        logSyncStatus("add", "synced");
 
-        /***********************/
-        /* ACTUALIZACIÓN */
       } else if (originalStatus === "updated") {
         if (!group.groupId) {
+          console.log("Grupo actualizado sin groupId, se reintentará como pendiente.");
           await groupRepo.saveGroup({ ...group, syncStatus: "pending" as GroupSyncStatus });
-          logSyncStatus("update", "failed");
           continue;
         }
 
@@ -187,19 +225,17 @@ export async function syncPendingGroups() {
         });
 
         await groupRepo.saveGroup({ ...group, syncStatus: "synced" as GroupSyncStatus });
+        await logSyncStatus(group, "update", "synced");
         groupSensor.itemSynced(group);
-        logSyncStatus("update", "synced");
 
-        /***********************/
-        /* ELIMINACIÓN */
       } else if (originalStatus === "deleted") {
         if (!group.groupId) {
-          console.log(`⚠️ Grupo sin groupId, eliminando solo localmente.`);
-          if (group.tempId !== undefined) {
-            await groupRepo.deleteGroup(group.tempId);
-            groupSensor.emit("itemDeleted", group.tempId);
+          console.log(`⚠️ Grupo sin groupId, se elimina solo localmente.`);
+          if (group.id) {
+            await groupRepo.deleteGroup(group.id);
+            groupSensor.emit("itemDeleted", group.id);
           }
-          logSyncStatus("delete", "synced");
+          await logSyncStatus(group, "delete", "synced");
           continue;
         }
 
@@ -207,17 +243,20 @@ export async function syncPendingGroups() {
           headers: { Authorization: `Bearer ${token.token}` },
         });
 
-        if (group.groupId !== undefined) {
-          await groupRepo.deleteGroup(group.groupId);
-          groupSensor.emit("itemDeleted", group.groupId);
+        if (group.id) {
+          await groupRepo.deleteGroup(group.id);
+          groupSensor.emit("itemDeleted", group.id);
         }
-        logSyncStatus("delete", "synced");
+        await logSyncStatus(group, "delete", "synced");
       }
     } catch (error) {
       hasError = true;
-      await handleApiError(group, error);
+      await handleApiError(group, originalStatus === "pending" ? "add" : originalStatus === "updated" ? "update" : "delete", error);
     }
   }
+
+  // ✅ CORRECCIÓN: La limpieza de grupos ahora es manual al final del proceso.
+  await cleanupGroups();
 
   if (hasError) {
     groupSensor.failure(new Error("Algunos grupos no se pudieron sincronizar."));
@@ -226,27 +265,45 @@ export async function syncPendingGroups() {
   }
 }
 
-/***********************/
-/* Funciones de servicio público */
-/***********************/
+// **Funciones de servicio público**
+
 export async function getGroups(): Promise<Group[]> {
   const localGroups = await groupRepo.getAllGroups();
   if (networkState.serverOnline) {
-    return localGroups.filter(g => g.syncStatus === 'backend' || g.syncStatus === 'synced');
+    return localGroups.filter(g => g.syncStatus === 'backend' || g.syncStatus === 'synced' || g.syncStatus === 'pending' || g.syncStatus === 'updated');
   } else {
-    return localGroups;
+    return localGroups.filter(g => g.syncStatus !== 'deleted');
   }
 }
 
-export async function createGroup(group: Omit<Group, "syncStatus">): Promise<Group> {
-  const tempId = `temp-${Date.now()}`;
-  return await groupRepo.saveGroup({ ...group, tempId, syncStatus: "pending" as GroupSyncStatus });
+export async function createGroup(group: Omit<Group, "id" | "syncStatus">): Promise<Group> {
+  // ✅ CORRECCIÓN CLAVE: Construir el objeto de forma explícita y completa.
+  const newGroup: Group = {
+    id: crypto.randomUUID(), // El ID único local, clave para la base de datos.
+    groupName: group.groupName,
+    description: group.description,
+    users: [], // Asignar un array vacío si no se especifica.
+    syncStatus: "pending" as GroupSyncStatus,
+    lastModifiedAt: group.lastModifiedAt || new Date().toISOString(),
+  };
+
+  return await groupRepo.saveGroup(newGroup);
 }
 
 export async function updateGroup(group: Group): Promise<Group> {
-  return await groupRepo.saveGroup({ ...group, syncStatus: group.syncStatus === "synced" ? "updated" as GroupSyncStatus : group.syncStatus });
+  const updatedGroup = {
+    ...group,
+    syncStatus: group.syncStatus === "synced" ? "updated" as GroupSyncStatus : group.syncStatus,
+    lastModifiedAt: new Date().toISOString(),
+  };
+  return await groupRepo.saveGroup(updatedGroup);
 }
 
 export async function deleteGroup(group: Group): Promise<Group> {
-  return await groupRepo.saveGroup({ ...group, syncStatus: "deleted" as GroupSyncStatus });
+  const deletedGroup = {
+    ...group,
+    syncStatus: "deleted" as GroupSyncStatus,
+    lastModifiedAt: new Date().toISOString(),
+  };
+  return await groupRepo.saveGroup(deletedGroup);
 }

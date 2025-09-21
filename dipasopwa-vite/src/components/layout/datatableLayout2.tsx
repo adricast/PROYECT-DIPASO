@@ -4,7 +4,6 @@ import { Column,type ColumnEditorOptions } from 'primereact/column';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
-import { FaEdit, FaTrashAlt, FaSave, FaTimes } from "react-icons/fa";
 
 // Estilos de PrimeReact
 import 'primereact/resources/themes/lara-light-indigo/theme.css';
@@ -170,11 +169,7 @@ return (
       paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown"
       rowsPerPageOptions={[5, 10, 25, 50]}
       className="shadow-md rounded-xl overflow-hidden border border-gray-200 bg-white"
-      rowClassName={(data, index) =>
-        `transition-all duration-200 ${
-          index % 2 === 0 ? "bg-gray-50 hover:bg-gray-100" : "bg-white hover:bg-gray-100"
-        }`
-      }
+    
       paginatorClassName="shadow-md rounded-md bg-white p-2 flex justify-between items-center"
     >
       {/* Selección múltiple */}

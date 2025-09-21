@@ -1,4 +1,4 @@
-// src/sensors/syncSensor.ts
+// src/hooks/sensors/syncSensor.ts
 import mitt, { type Emitter } from "mitt";
 
 export type SyncEvents<T> = {

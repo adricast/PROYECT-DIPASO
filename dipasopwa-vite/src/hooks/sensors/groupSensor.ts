@@ -1,4 +1,4 @@
-// src/sensors/groupSensor.ts
+// src/hooks/sensors/groupSensor.ts
 import { SyncSensor } from "./syncSensor";
 import type { Group } from "../../entities/api/groupAPI";
 import { syncPendingGroups } from '../../workers/syncGroupWorker'; // ⬅️ Corrected this line
