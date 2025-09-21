@@ -1,10 +1,13 @@
+// src/features/admin/components/user-management/addeditgroupdialog.tsx
+
 import React, { useState, useEffect } from "react";
-// Importa tu componente de Diálogo aquí
+// Asegúrate de que el tipo 'Group' esté importado correctamente
+import type { Group } from "../../../../entities/api/groupAPI";
 
 const AddEditGroupDialog: React.FC<{
   open: boolean;
   onClose: () => void;
-  group: any | null;
+  group: Group | null;
   onSave: (groupName: string, description: string) => void;
 }> = ({ open, onClose, group, onSave }) => {
   const [groupName, setGroupName] = useState("");

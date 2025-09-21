@@ -1,8 +1,9 @@
+// src/features/admin/components/user-management/addedituserdialog.tsx
+
 import React, { useState, useEffect } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { type User } from "../../../../entities/api/userAPI";
 
-
-// Función para generar una contraseña aleatoria
 const generatePassword = (length = 12) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
   let result = "";
@@ -12,14 +13,14 @@ const generatePassword = (length = 12) => {
   return result;
 };
 
-const AddEditGroupDialog: React.FC<{
+const AddEditUserDialog: React.FC<{
   open: boolean;
   onClose: () => void;
-  user: any | null;
-  onSave: (userData: any) => void;
+  user: User | null;
+  onSave: (userData: User) => void;
   passwordToggleColor?: string;
   passwordToggleHoverColor?: string;
-}> = ({ open, onClose, user, onSave, passwordToggleColor = "#624A89", passwordToggleHoverColor = "#4b396b" }) => {
+}> = ({ open, onClose, user, onSave, passwordToggleColor = "#624A89" }) => { // ❌ Error here, `passwordToggleHoverColor` is missing from the destructuring.
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [identification, setIdentification] = useState("");
@@ -30,7 +31,7 @@ const AddEditGroupDialog: React.FC<{
   useEffect(() => {
     if (user) {
       setUsername(user.username || "");
-      setPassword(""); // No mostramos la contraseña al editar
+      setPassword("");
       setIdentification(user.identification || "");
       setEmail(user.email || "");
       setAutoGeneratePassword(false);
@@ -44,12 +45,18 @@ const AddEditGroupDialog: React.FC<{
   }, [user]);
 
   const handleSave = () => {
+    const isEditing = !!user;
+    const userData = {
+      username,
+      password,
+      identification,
+      email,
+      isactive: true,
+    };
     if (!isEditing && autoGeneratePassword) {
-      const newPassword = generatePassword();
-      onSave({ username, password: newPassword, identification, email });
-    } else {
-      onSave({ username, password, identification, email });
+      userData.password = generatePassword();
     }
+    onSave(userData as User);
   };
 
   if (!open) return null;
@@ -64,7 +71,6 @@ const AddEditGroupDialog: React.FC<{
         <input placeholder="Identificación" value={identification} onChange={(e) => setIdentification(e.target.value)} />
         <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
 
-        {/* Solo renderiza el contenedor de contraseña si no estás editando */}
         {!isEditing && (
           <div className="password-container">
             <div className="password-input-group">
@@ -80,7 +86,7 @@ const AddEditGroupDialog: React.FC<{
                 onClick={() => setShowPassword(!showPassword)}
                 className="password-toggle-btn"
                 style={{
-                    color: passwordToggleColor,
+                  color: passwordToggleColor,
                 }}
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -106,4 +112,4 @@ const AddEditGroupDialog: React.FC<{
   );
 };
 
-export default AddEditGroupDialog;
+export default AddEditUserDialog;

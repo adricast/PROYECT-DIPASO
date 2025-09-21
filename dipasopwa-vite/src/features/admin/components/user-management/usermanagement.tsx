@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import DataTable from "./../../../../components/layout/datatableLayout";
-import AddEditGroupDialog from "./addeditgroupdialog";
+import AddEditUserDialog from "./addeditgroupdialog";
 import DeleteConfirmationDialog from "./deleteconfirmationdialog";
 import GenericButton from "./../../../../components/layout/buttonLayout";
 import { FaUserEdit, FaTrash, FaPlus } from "react-icons/fa";
@@ -40,8 +40,9 @@ const UserManagementPage: React.FC = () => {
     setCurrentUser(null);
   };
 
-  const handleSaveUser = (groupName: string, description: string) => {
-    console.log("Datos guardados del modal:", { groupName, description });
+ const handleSaveUser = (userData: any) => {
+    console.log("Datos guardados del modal:", userData);
+ 
     // Aquí iría tu lógica para guardar o actualizar los datos del usuario
     handleCloseModals();
   };
@@ -129,10 +130,10 @@ const UserManagementPage: React.FC = () => {
       />
 
       {/* --- Integración de los modales --- */}
-      <AddEditGroupDialog
+      <AddEditUserDialog
         open={isAddEditModalOpen}
         onClose={handleCloseModals}
-        group={currentUser}
+        user={currentUser}
         onSave={handleSaveUser}
       />
 

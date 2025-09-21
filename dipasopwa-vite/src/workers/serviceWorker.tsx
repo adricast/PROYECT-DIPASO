@@ -1,10 +1,14 @@
 /// <reference lib="webworker" />
 
-// Nombre de la caché para esta versión del Service Worker.
-// Cambiar el nombre crea una nueva caché, lo que ayuda a invalidar la caché antigua.
+/****************************
+ * Definición de constantes
+ ****************************
+ * Aquí se establece el nombre de la caché y la lista de 
+ * recursos estáticos que el Service Worker almacenará 
+ * al instalarse. Estos archivos son esenciales para 
+ * permitir que la aplicación funcione en modo offline.
+ ***************************/
 const CACHE_NAME = "pos-app-cache-v1";
-// Lista de URLs de recursos estáticos que se pre-cachean durante la instalación.
-// Esto permite que la aplicación funcione sin conexión.
 const urlsToCache = [
   "/",
   "/index.html",
@@ -14,34 +18,53 @@ const urlsToCache = [
   "/icon-512x512.png",
 ];
 
-// 🔹 Tipar self para evitar errores de linting
-// 'self' es una variable global en el contexto del Service Worker.
+/****************************
+ * Importación de módulos externos
+ ****************************
+ * Se importa la lógica de sincronización desde un archivo
+ * separado (syncGroupWorker). Esto mantiene el Service Worker 
+ * limpio y modular, delegando las operaciones específicas 
+ * a otro archivo.
+ ***************************/
+import * as syncWorker from './syncGroupWorker'; 
+
+/****************************
+ * Tipado de `self`
+ ****************************
+ * Se define el tipo de `self` como `ServiceWorkerGlobalScope` 
+ * para evitar errores de linting y mejorar la autocompletación 
+ * en TypeScript.
+ ***************************/
 const swSelf = self as unknown as ServiceWorkerGlobalScope;
 
-// --- 1. Instalación ---
-// El evento 'install' se dispara cuando el Service Worker se registra por primera vez.
+/****************************
+ * Instalación del Service Worker
+ ****************************
+ * Evento `install`: se ejecuta cuando el SW se registra 
+ * por primera vez o cuando hay cambios en el archivo. 
+ * Aquí se cachean los recursos definidos en `urlsToCache`.
+ ***************************/
 swSelf.addEventListener("install", (event: ExtendableEvent) => {
   console.log("Service Worker: Instalando y cacheando recursos...");
-  // waitUntil asegura que la instalación no se complete hasta que la promesa se resuelva.
   event.waitUntil(
-    // Abrimos un objeto de caché con el nombre definido.
     caches.open(CACHE_NAME).then(cache => 
-      // Agregamos todas las URLs de la lista a la caché.
       cache.addAll(urlsToCache)
     )
   );
 });
 
-// --- 2. Activación ---
-// El evento 'activate' se dispara cuando el Service Worker se activa y toma el control de la página.
+/****************************
+ * Activación del Service Worker
+ ****************************
+ * Evento `activate`: se ejecuta cuando el SW toma control 
+ * después de ser instalado. Se eliminan versiones antiguas 
+ * de caché para liberar espacio y evitar inconsistencias.
+ ***************************/
 swSelf.addEventListener("activate", (event: ExtendableEvent) => {
   console.log("Service Worker: Activado");
   event.waitUntil(
-    // Obtenemos todos los nombres de las cachés existentes.
     caches.keys().then(cacheNames =>
-      // Esperamos a que todas las promesas se resuelvan.
       Promise.all(
-        // Mapeamos cada nombre de caché para eliminar las que no coinciden con la actual.
         cacheNames.map(key => {
           if (key !== CACHE_NAME) {
             console.log("Service Worker: Eliminando caché antigua", key);
@@ -53,21 +76,22 @@ swSelf.addEventListener("activate", (event: ExtendableEvent) => {
   );
 });
 
-// --- 3. Fetch ---
-// El evento 'fetch' se dispara cada vez que la página intenta cargar un recurso.
+/****************************
+ * Interceptación de peticiones (Fetch)
+ ****************************
+ * Evento `fetch`: intercepta todas las peticiones GET. 
+ * Si el recurso existe en caché, lo devuelve desde allí; 
+ * de lo contrario, lo solicita al servidor y lo cachea 
+ * para futuras peticiones. Si no hay conexión, devuelve 
+ * una respuesta personalizada "Offline".
+ ***************************/
 swSelf.addEventListener("fetch", (event: FetchEvent) => {
-  // Ignoramos las peticiones que no son GET, como POST o PUT, que no deben ser cacheables.
   if (event.request.method !== "GET") return;
 
-  // Respondemos a la petición con una promesa.
   event.respondWith(
-    // Intentamos encontrar la petición en la caché.
     caches.match(event.request).then(response => {
-      // Si el recurso está en la caché, lo devolvemos inmediatamente.
-      // Si no, realizamos una petición de red.
       return response || fetch(event.request)
         .then(fetchRes => {
-          // Si la respuesta es válida (status 200, tipo 'basic'), la guardamos en la caché.
           if (fetchRes && fetchRes.status === 200 && fetchRes.type === "basic") {
             const responseToCache = fetchRes.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
@@ -75,19 +99,60 @@ swSelf.addEventListener("fetch", (event: FetchEvent) => {
           return fetchRes;
         })
         .catch(() => {
-          // Si la petición de red falla (ej. sin conexión), devolvemos una respuesta de fallback.
           return new Response("Offline", { status: 408, statusText: "Offline" });
         });
     })
   );
 });
 
-// --- 4. Mensajes desde la app ---
-// Escucha mensajes enviados desde el código JavaScript de la aplicación principal.
-swSelf.addEventListener("message", (event: ExtendableMessageEvent) => {
-  // Si la aplicación pide saltar la espera, el Service Worker lo hace.
-  // Esto permite que el nuevo Service Worker tome el control más rápido.
+/****************************
+ * Comunicación con la aplicación
+ ****************************
+ * Evento `message`: permite que la aplicación envíe 
+ * instrucciones al SW. Aquí se manejan acciones como 
+ * crear, actualizar o eliminar grupos, además de 
+ * sincronizar con el backend. 
+ * Los resultados o errores se devuelven al hilo principal.
+ ***************************/
+swSelf.addEventListener("message", async (event: ExtendableMessageEvent) => {
   if (event.data?.type === "SKIP_WAITING") {
     swSelf.skipWaiting();
+    return;
+  }
+  
+  const { action, payload } = event.data;
+  
+  try {
+    let result;
+    switch (action) {
+      case 'createGroup':
+        result = await syncWorker.createGroup(payload);
+        break;
+      case 'updateGroup':
+        result = await syncWorker.updateGroup(payload);
+        break;
+      case 'deleteGroup':
+        result = await syncWorker.deleteGroup(payload);
+        break;
+      case 'syncFromBackend':
+        await syncWorker.syncFromBackend();
+        return; 
+      default:
+        throw new Error('Invalid worker action');
+    }
+    
+    const clients = await swSelf.clients.matchAll({ type: 'window' });
+    clients.forEach(client => client.postMessage({
+      type: 'item-synced',
+      payload: result
+    }));
+
+  } catch (error) {
+    console.error(`Error en la acción del Service Worker '${action}':`, error);
+    const clients = await swSelf.clients.matchAll({ type: 'window' });
+    clients.forEach(client => client.postMessage({
+      type: 'item-failed',
+      payload: { error }
+    }));
   }
 });
