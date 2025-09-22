@@ -1,7 +1,7 @@
 // src/components/groupmanagement/groupusermanagement.tsx
 
 /**************************************************/
-/* COMPONENTE PRINCIPAL DE GESTIÓN DE GRUPOS      */
+/* COMPONENTE PRINCIPAL DE GESTIÓN DE GRUPOS */
 /**************************************************/
 /*
  * Este componente maneja toda la interfaz de usuario
@@ -23,7 +23,8 @@
  */
 /**************************************************/
 
-// ✅ CORRECCIÓN 1: Importar los hooks de React que faltaban
+
+import { useCallback } from "react";
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import "./../../styles/group-management.scss";
 import type { Group, GroupSyncStatus } from "../../../../entities/api/groupAPI";
@@ -32,9 +33,11 @@ import {
     createGroup,
     updateGroup,
     deleteGroup,
+    syncFromBackend
 } from "../../../../workers/syncGroupWorker";
 import { groupSensor } from "../../../../hooks/sensors/groupSensor";
-import { networkSensor } from "../../../../hooks/sensors/networkSensor";
+import { networkSensor, networkState } from "../../../../hooks/sensors/networkSensor";
+
 import AddEditGroupDialog from "./addeditgroupdialog";
 import DeleteConfirmationDialog from "./deleteconfirmationdialog";
 import { FaPlus, FaTrash, FaRotate } from "react-icons/fa6";
@@ -44,27 +47,23 @@ import { useKeyboardShortcut } from "./../../../../hooks/functions/useKeyboardSh
 import { SHORTCUTS } from "./../../../../config/shortcuts/keyShortcuts";
 
 /**************************************************/
-/* COMPONENTE GROUP MANAGEMENT (con ForwardRef)   */
+/* COMPONENTE GROUP MANAGEMENT (con ForwardRef) */
 /**************************************************/
-/*
- * ForwardRef permite exponer funciones del componente a
- * un componente padre (ej. abrir modal desde otro lado).
- */
-// ✅ CORRECCIÓN 2: Tipar los parámetros "props" y "ref"
 const GroupManagement = forwardRef<any, any>((_, ref) => {
     /**************************************************/
-    /* ESTADOS PRINCIPALES                            */
+    /* ESTADOS PRINCIPALES*/
     /**************************************************/
-    const [groups, setGroups] = useState<Group[]>([]); // Lista de grupos
-    const [selectedGroup, setSelectedGroup] = useState<Group | null>(null); // Grupo seleccionado
-    const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false); // Modal de creación/edición
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); // Modal de confirmación de eliminación
-    const [itemToDelete, setItemToDelete] = useState<Group | null>(null); // Grupo marcado para borrar
-    const [currentPage, setCurrentPage] = useState(1); // Paginación
+    const [isSynchronized, setIsSynchronized] = useState(networkState.serverOnline);
+    const [groups, setGroups] = useState<Group[]>([]);
+    const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+    const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<Group | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
 
     /**************************************************/
-    /* MAPA DE ESTADOS DE SINCRONIZACIÓN CON COLORES  */
+    /* MAPA DE ESTADOS DE SINCRONIZACIÓN CON COLORES */
     /**************************************************/
     const statusColors: Record<GroupSyncStatus, { status: boolean; color: string; tooltip: string }> = {
         "synced": { status: true, color: "#32CD32", tooltip: "Sincronizado correctamente." },
@@ -77,9 +76,9 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     };
 
     /**************************************************/
-    /* FUNCIÓN DE CARGA Y REFRESCO DE DATOS           */
+    /* FUNCIÓN DE CARGA Y REFRESCO DE DATOS */
     /**************************************************/
-    const loadGroups = async () => {
+    const loadGroups = useCallback(async () => {
         const data = await getGroups();
         setGroups(data);
 
@@ -91,60 +90,56 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
         } else {
             setSelectedGroup(null);
         }
+    }, [selectedGroup]);
+
+    const handleRefresh = async () => {
+        console.log("Iniciando sincronización manual desde backend...");
+        await syncFromBackend();
     };
 
     /**************************************************/
-    /* EVENTOS: RED Y SINCRONIZACIÓN                  */
+    /* EVENTOS: RED Y SINCRONIZACIÓN  */
     /**************************************************/
     useEffect(() => {
-        loadGroups();
+        const handleSyncSuccess = () => {
+            console.log("Sincronización completa. Recargando datos.");
+            if (!isGroupDialogOpen && !isDeleteDialogOpen) {
+                loadGroups();
+            }
+        };
 
-        const handleSyncEvent = () => loadGroups();
-        groupSensor.on("item-synced", handleSyncEvent);
-        groupSensor.on("itemDeleted", handleSyncEvent);
-        groupSensor.on("item-failed", handleSyncEvent);
-        groupSensor.on("sync-success", handleSyncEvent);
-        groupSensor.on("sync-failure", handleSyncEvent);
+        const handleServerStatusChange = () => {
+            setIsSynchronized(networkState.serverOnline);
+            if (networkState.serverOnline) {
+                console.log("Servidor disponible. Reanudando operaciones.");
+            } else {
+                console.log("Servidor no disponible. Operaciones bloqueadas.");
+            }
+        };
+
+        groupSensor.on("sync-success", handleSyncSuccess);
+        networkSensor.on("server-online", handleServerStatusChange);
+        networkSensor.on("server-offline", handleServerStatusChange);
 
         return () => {
-            groupSensor.off("item-synced", handleSyncEvent);
-            groupSensor.off("itemDeleted", handleSyncEvent);
-            groupSensor.off("item-failed", handleSyncEvent);
-            groupSensor.off("sync-success", handleSyncEvent);
-            groupSensor.off("sync-failure", handleSyncEvent);
+            groupSensor.off("sync-success", handleSyncSuccess);
+            networkSensor.off("server-online", handleServerStatusChange);
+            networkSensor.off("server-offline", handleServerStatusChange);
         };
-    }, []);
-
-    useEffect(() => {
-        const handleNetworkOnline = () => {
-            console.log("Servidor en línea. Iniciando sincronización de grupos.");
-            loadGroups();
-        };
-
-        networkSensor.on("server-online", handleNetworkOnline);
-
-        return () => {
-            networkSensor.off("server-online", handleNetworkOnline);
-        };
-    }, []);
-
+    }, [isGroupDialogOpen, isDeleteDialogOpen, loadGroups]);
 
     /**************************************************/
-    /* CRUD CON OPTIMISTIC UI                         */
+    /* CRUD CON OPTIMISTIC UI  */
     /**************************************************/
     const handleCreateOrUpdateGroup = async (groupName: string, description: string) => {
         if (selectedGroup && selectedGroup.id) {
-            // Actualizar
             const updatedGroup = { ...selectedGroup, groupName, description, syncStatus: "updated" as GroupSyncStatus };
-            // ✅ CORRECCIÓN 3: Especificar los tipos en las funciones de actualización
             setGroups((prev: Group[]) => prev.map((g: Group) => g.id === updatedGroup.id ? updatedGroup : g));
             setSelectedGroup(updatedGroup);
             await updateGroup(updatedGroup);
         } else {
-            // Crear
             const newGroup = { groupName, description, lastModifiedAt: new Date().toISOString() };
             const tempId = new Date().getTime().toString();
-            // ✅ CORRECCIÓN 4: Especificar los tipos en las funciones de actualización
             setGroups((prev: Group[]) => [...prev, { ...newGroup, id: tempId, syncStatus: "pending" as GroupSyncStatus, users: [] }]);
             await createGroup(newGroup);
         }
@@ -154,7 +149,6 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     const handleDeleteItem = async () => {
         if (!itemToDelete) return;
         const groupToDelete = { ...itemToDelete, syncStatus: "deleted" as GroupSyncStatus };
-        // ✅ CORRECCIÓN 5: Especificar los tipos en las funciones de actualización
         setGroups((prev: Group[]) => prev.map((g: Group) => g.id === groupToDelete.id ? groupToDelete : g));
         await deleteGroup(groupToDelete);
         setIsDeleteDialogOpen(false);
@@ -162,28 +156,39 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     };
 
     /**************************************************/
-    /* DIALOGOS                                       */
+    /* DIALOGOS */
     /**************************************************/
     const handleOpenGroupDialog = (group: Group | null = null) => {
-        if (group && (group.syncStatus === "in-progress" || group.syncStatus === "deleted")) {
+        // PERMITE siempre abrir el diálogo para crear un nuevo grupo
+        if (!group) {
+            setSelectedGroup(null);
+            setIsGroupDialogOpen(true);
+            return;
+        }
+
+        // Bloquea la edición si el estado no es 'backend'
+        if (group.syncStatus !== "backend") {
             alert("No se puede editar este grupo en su estado actual.");
             return;
         }
+
         setSelectedGroup(group);
         setIsGroupDialogOpen(true);
     };
 
     const handleOpenDeleteDialog = (item: Group) => {
-        if (item.syncStatus === "in-progress" || item.syncStatus === "deleted") {
+        // Solo permite la eliminación si el estado es 'backend'
+        if (item.syncStatus !== "backend") {
             alert("No se puede eliminar este grupo en su estado actual.");
             return;
         }
+
         setItemToDelete(item);
         setIsDeleteDialogOpen(true);
     };
 
     /**************************************************/
-    /* ATAJOS DE TECLADO                              */
+    /* ATAJOS DE TECLADO */
     /**************************************************/
     const handleNewFromShortcut = () => handleOpenGroupDialog();
     const handleSaveFromShortcut = () => {
@@ -205,7 +210,7 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     useKeyboardShortcut(SHORTCUTS.EDIT_FORM.keys, handleEditFromShortcut);
 
     /**************************************************/
-    /* FUNCIONES EXTERNAS (REF)                       */
+    /* FUNCIONES EXTERNAS (REF) */
     /**************************************************/
     useImperativeHandle(ref, () => ({
         handleOpenGroupModal: handleOpenGroupDialog,
@@ -217,7 +222,7 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     }));
 
     /**************************************************/
-    /* PAGINACIÓN                                     */
+    /* PAGINACIÓN  */
     /**************************************************/
     const currentGroups = useMemo(() => {
         const indexOfLastGroup = currentPage * itemsPerPage;
@@ -229,14 +234,13 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
     /**************************************************/
-    /* NAVEGACIÓN CON TECLAS                          */
+    /* NAVEGACIÓN CON TECLAS*/
     /**************************************************/
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (isGroupDialogOpen || isDeleteDialogOpen) return;
             if (["ArrowUp", "ArrowDown"].includes(event.key)) {
                 event.preventDefault();
-                // ✅ CORRECCIÓN 6: Especificar el tipo del parámetro "g"
                 const currentIndex = selectedGroup ? currentGroups.findIndex((g: Group) => g.id === selectedGroup.id) : -1;
                 let newIndex = currentIndex;
                 if (event.key === "ArrowDown") newIndex = Math.min(currentIndex + 1, currentGroups.length - 1);
@@ -249,26 +253,32 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     }, [currentGroups, selectedGroup, isGroupDialogOpen, isDeleteDialogOpen]);
 
     /**************************************************/
-    /* RENDER PRINCIPAL                               */
+    /* RENDER PRINCIPAL*/
     /**************************************************/
     return (
         <div className="group-management table-wrapper">
             <div className="header-actions">
                 <h2>Gestión de Grupos</h2>
-                <button className="add-button action-btn" onClick={() => handleOpenGroupDialog()}>
+                <button
+                    className="add-button action-btn"
+                    onClick={() => handleOpenGroupDialog()}
+                    disabled={false} // Siempre permitir crear
+                >
                     <FaPlus size={16} />
                 </button>
-                <button className="refresh-button action-btn" onClick={loadGroups}>
+                <button className="refresh-button action-btn" onClick={handleRefresh}>
                     <FaRotate size={16} />
                 </button>
             </div>
 
             <div className="table-container">
                 <div className="groups-list">
-                    {/* ✅ CORRECCIÓN 7: Especificar los tipos de "g" y "index" */}
                     {currentGroups.map((g: Group, index: number) => {
-                        const isBlocked = g.syncStatus === "in-progress" || g.syncStatus === "deleted";
+                        // REGLA CLAVE: HABILITA solo si el estado es 'backend'
+                        const isEnabled = g.syncStatus === "backend";
+
                         const lightProps = statusColors[g.syncStatus as keyof typeof statusColors] ?? { status: false, tooltip: "" };
+
                         return (
                             <div
                                 key={g.id}
@@ -288,14 +298,14 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
                                 <div className="item-actions">
                                     <button
                                         className="edit-button action-btn"
-                                        disabled={isBlocked}
+                                        disabled={!isEnabled}
                                         onClick={(e) => { e.stopPropagation(); handleOpenGroupDialog(g); }}
                                     >
                                         <MdEdit size={16} />
                                     </button>
                                     <button
                                         className="delete-button action-btn"
-                                        disabled={isBlocked}
+                                        disabled={!isEnabled}
                                         onClick={(e) => { e.stopPropagation(); handleOpenDeleteDialog(g); }}
                                     >
                                         <FaTrash size={16} />
@@ -307,7 +317,6 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
                 </div>
             </div>
 
-            {/* Paginación */}
             <div className="pagination-dots">
                 {currentPage > 1 && <span className="arrow" onClick={() => paginate(currentPage - 1)}>‹</span>}
                 {Array.from({ length: totalPages }, (_, i) => (
@@ -318,7 +327,6 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
                 {currentPage < totalPages && <span className="arrow" onClick={() => paginate(currentPage + 1)}>›</span>}
             </div>
 
-            {/* Dialogs */}
             <AddEditGroupDialog
                 open={isGroupDialogOpen}
                 onClose={() => setIsGroupDialogOpen(false)}

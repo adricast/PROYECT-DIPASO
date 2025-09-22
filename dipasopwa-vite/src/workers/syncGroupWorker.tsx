@@ -116,7 +116,9 @@ async function cleanupGroups() {
       console.warn(`⚠️ Omitting deletion of malformed group record: ${JSON.stringify(group)}`);
     }
   }
+
 }
+
 
 /****************************/
 /* FUNCIONES DE SINCRONIZACIÓN */
@@ -175,9 +177,17 @@ export async function syncFromBackend() {
         }
       }
     }
+    
+    // Llama a cleanupGroups() y luego notifica a la UI.
     await cleanupGroups();
+    groupSensor.success();
+    
+    // ✅ Emite el evento de recarga inmediatamente, sin retraso.
+    groupSensor.emit("groups-reloaded", undefined);
+    
   } catch (error) {
     console.error("Error durante la sincronización inicial desde el backend:", error);
+    groupSensor.failure(error);
   }
 }
 /**
@@ -185,88 +195,99 @@ export async function syncFromBackend() {
  * Maneja los estados "pending", "updated" y "deleted".
  */
 export async function syncPendingGroups() {
-  if (!networkState.serverOnline) {
-    console.log("Sin conexión, posponiendo la sincronización de grupos pendientes.");
-    return;
-  }
-
-  const groupsToAdd = await groupRepo.getGroupsBySyncStatus("pending");
-  const groupsToUpdate = await groupRepo.getGroupsBySyncStatus("updated");
-  const groupsToDelete = await groupRepo.getGroupsBySyncStatus("deleted");
-
-  const allGroups = [...groupsToAdd, ...groupsToUpdate, ...groupsToDelete];
-  if (!allGroups.length) {
-    console.log("✅ No hay grupos pendientes para sincronizar.");
-    groupSensor.success();
-    return;
-  }
-
-  groupSensor.start();
-
-  const token = await authRepo.getToken(TOKEN_KEY);
-  if (!token) {
-    console.error("❌ Token no disponible, sincronización fallida.");
-    groupSensor.failure(new Error("Token no disponible"));
-    return;
-  }
-
-  let hasError = false;
-
-  for (const group of allGroups) {
-    const originalStatus: GroupSyncStatus = group.syncStatus;
-    if (!group.id) {
-      console.error("❌ Grupo sin ID local, no se puede sincronizar.", group);
-      continue;
+    if (!networkState.serverOnline) {
+        console.log("Sin conexión, posponiendo la sincronización de grupos pendientes.");
+        return;
     }
 
-    try {
-      await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" as GroupSyncStatus });
+    const groupsToAdd = await groupRepo.getGroupsBySyncStatus("pending");
+    const groupsToUpdate = await groupRepo.getGroupsBySyncStatus("updated");
+    const groupsToDelete = await groupRepo.getGroupsBySyncStatus("deleted");
 
-      if (originalStatus === "pending") {
-        const newGroupData = { group_name: group.groupName, description: group.description };
-        const response = await api.post(groupRouteApi.group, newGroupData, { headers: { Authorization: `Bearer ${token.token}` } });
-        const syncedGroup: Group = { ...group, id: group.id, groupId: response.data.user_group_id, syncStatus: "synced" as GroupSyncStatus };
-        await groupRepo.saveGroup(syncedGroup);
-        await logSyncStatus(syncedGroup, "add", "synced");
-        groupSensor.itemSynced(syncedGroup);
+    const allGroups = [...groupsToAdd, ...groupsToUpdate, ...groupsToDelete];
+    if (!allGroups.length) {
+        console.log("✅ No hay grupos pendientes para sincronizar.");
+        groupSensor.success();
+        return;
+    }
 
-      } else if (originalStatus === "updated") {
-        if (!group.groupId) {
-          await groupRepo.saveGroup({ ...group, syncStatus: "pending" as GroupSyncStatus });
-          continue;
-        }
-        const updateData = { group_name: group.groupName, description: group.description };
-        await api.put(`${groupRouteApi.group}${group.groupId}`, updateData, { headers: { Authorization: `Bearer ${token.token}` } });
-        await groupRepo.saveGroup({ ...group, syncStatus: "synced" as GroupSyncStatus });
-        await logSyncStatus(group, "update", "synced");
-        groupSensor.itemSynced(group);
+    groupSensor.start();
 
-      } else if (originalStatus === "deleted") {
-        if (!group.groupId) {
-          if (group.id) {
-            await groupRepo.deleteGroup(group.id);
-            groupSensor.emit("itemDeleted", group.id);
-          }
-          await logSyncStatus(group, "delete", "synced");
-          continue;
+    const token = await authRepo.getToken(TOKEN_KEY);
+    if (!token) {
+        console.error("❌ Token no disponible, sincronización fallida.");
+        groupSensor.failure(new Error("Token no disponible"));
+        return;
+    }
+
+    let hasError = false;
+
+    for (const group of allGroups) {
+        const originalStatus: GroupSyncStatus = group.syncStatus;
+        if (!group.id) {
+            console.error("❌ Grupo sin ID local, no se puede sincronizar.", group);
+            continue;
         }
-        await api.delete(`${groupRouteApi.group}${group.groupId}`, { headers: { Authorization: `Bearer ${token.token}` } });
-        if (group.id) {
-          await groupRepo.deleteGroup(group.id);
-          groupSensor.emit("itemDeleted", group.id);
+
+        try {
+            await groupRepo.saveGroup({ ...group, syncStatus: "in-progress" as GroupSyncStatus });
+
+            if (originalStatus === "pending") {
+                const newGroupData = { group_name: group.groupName, description: group.description };
+                const response = await api.post(groupRouteApi.group, newGroupData, { headers: { Authorization: `Bearer ${token.token}` } });
+                const syncedGroup: Group = { ...group, id: group.id, groupId: response.data.user_group_id, syncStatus: "synced" as GroupSyncStatus };
+                await groupRepo.saveGroup(syncedGroup);
+                await logSyncStatus(syncedGroup, "add", "synced");
+                groupSensor.itemSynced(syncedGroup);
+
+            } else if (originalStatus === "updated") {
+                if (!group.groupId) {
+                    await groupRepo.saveGroup({ ...group, syncStatus: "pending" as GroupSyncStatus });
+                    continue;
+                }
+                const updateData = { group_name: group.groupName, description: group.description };
+                await api.put(`${groupRouteApi.group}${group.groupId}`, updateData, { headers: { Authorization: `Bearer ${token.token}` } });
+                await groupRepo.saveGroup({ ...group, syncStatus: "synced" as GroupSyncStatus });
+                await logSyncStatus(group, "update", "synced");
+                groupSensor.itemSynced(group);
+
+            } else if (originalStatus === "deleted") {
+                if (!group.groupId) {
+                    if (group.id) {
+                        await groupRepo.deleteGroup(group.id);
+                        groupSensor.emit("itemDeleted", group.id);
+                    }
+                    await logSyncStatus(group, "delete", "synced");
+                    continue;
+                }
+                await api.delete(`${groupRouteApi.group}${group.groupId}`, { headers: { Authorization: `Bearer ${token.token}` } });
+                if (group.id) {
+                    await groupRepo.deleteGroup(group.id);
+                    groupSensor.emit("itemDeleted", group.id);
+                }
+                await logSyncStatus(group, "delete", "synced");
+            }
+        } catch (error) {
+            hasError = true;
+            await handleApiError(group, originalStatus === "pending" ? "add" : originalStatus === "updated" ? "update" : "delete", error);
         }
-        await logSyncStatus(group, "delete", "synced");
+    }
+
+    await cleanupGroups();
+
+
+      if (hasError) {
+          groupSensor.failure(new Error("Algunos grupos no se pudieron sincronizar."));
+      } else {
+          groupSensor.success();
       }
-    } catch (error) {
-      hasError = true;
-      await handleApiError(group, originalStatus === "pending" ? "add" : originalStatus === "updated" ? "update" : "delete", error);
-    }
-  }
+      
+      // ✅ PASO 1: Llama a syncFromBackend al final de syncPendingGroups
+      await syncFromBackend();
+  
 
-  await cleanupGroups();
-
-  if (hasError) groupSensor.failure(new Error("Algunos grupos no se pudieron sincronizar."));
-  else groupSensor.success();
+    if (hasError) groupSensor.failure(new Error("Algunos grupos no se pudieron sincronizar."));
+    else groupSensor.success();
 }
 
 /****************************/

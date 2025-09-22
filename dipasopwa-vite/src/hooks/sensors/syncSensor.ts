@@ -9,6 +9,7 @@ export type SyncEvents<T> = {
   "item-synced": T;
   "item-failed": { item: T; error: unknown };
   "itemDeleted": string|number; 
+  "groups-reloaded": void;  // ✅ Agregamos este evento
 };
 
 export class SyncSensor<T> {
