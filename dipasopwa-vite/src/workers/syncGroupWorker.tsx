@@ -247,7 +247,9 @@ export async function syncPendingGroups() {
                 }
                 const updateData = { group_name: group.groupName, description: group.description };
                 await api.put(`${groupRouteApi.group}${group.groupId}`, updateData, { headers: { Authorization: `Bearer ${token.token}` } });
+              
                 await groupRepo.saveGroup({ ...group, syncStatus: "synced" as GroupSyncStatus });
+               
                 await logSyncStatus(group, "update", "synced");
                 groupSensor.itemSynced(group);
 
