@@ -1,4 +1,3 @@
-export type UserSyncStatus = "pending" | "synced" | "deleted"| "in-progress" | "updated";
 
 
 // Usuario
@@ -10,6 +9,6 @@ export interface User {
   email: string;
   isactive:boolean;
   groupId?: string;      // referencia al grupo
-  syncStatus?: UserSyncStatus;
+
   users?: User[];       // usuarios locales o cache
 }
