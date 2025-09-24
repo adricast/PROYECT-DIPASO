@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import UserManagement from "./usermanagement";
+import UserManagement from "./usermanagement2";
 
 const UserManagementPage: React.FC = () => {
   const navigate = useNavigate();

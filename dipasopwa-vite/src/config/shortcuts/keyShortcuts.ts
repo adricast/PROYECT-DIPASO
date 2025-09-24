@@ -6,7 +6,7 @@
  */
 export const SHORTCUTS = {
   // Atajos GENERALES aplicables a cualquier formulario
-  NEW_FORM: { keys: ['s'], description: 'Nuevo formulario' },
+  NEW_FORM: { keys: ['Control', 'Alt', 'n'], description: 'Nuevo formulario' },
   // ✅ Nuevo atajo para editar
   EDIT_FORM: { keys: ['Control', 'Alt', 'm'], description: 'Editar formulario' },
   SAVE_FORM: { keys: ['Control', 'Alt', 'g'], description: 'Guardar formulario' },

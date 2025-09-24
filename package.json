@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "idb": "^8.0.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13"
   }
 }

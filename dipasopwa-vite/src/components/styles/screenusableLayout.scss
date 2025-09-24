@@ -1,0 +1,150 @@
+/* ReusableTable.module.scss */
+
+.button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem; /* rounded-md */
+  font-weight: 600; /* font-semibold */
+  transition: background-color 0.2s, color 0.2s;
+  cursor: pointer;
+  border: none;
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.button-primary {
+  background-color: #3b82f6; /* bg-blue-500 */
+  color: #ffffff; /* text-white */
+  &:hover:not([disabled]) {
+    background-color: #2563eb; /* hover:bg-blue-600 */
+  }
+}
+
+.button-delete {
+  background-color: #ef4444; /* bg-red-500 */
+  color: #ffffff; /* text-white */
+  &:hover:not([disabled]) {
+    background-color: #dc2626; /* hover:bg-red-600 */
+  }
+}
+
+.button-edit {
+  background-color: #f59e0b; /* bg-amber-500 */
+  color: #ffffff; /* text-white */
+  &:hover:not([disabled]) {
+    background-color: #d97706; /* hover:bg-amber-600 */
+  }
+}
+/* DeleteConfirmationDialog.module.scss */
+
+/* Diálogo con blur */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  border-radius: 0px;
+  input{
+    background-color: white;
+    color: black;
+    border: 2px solid gray;
+  }
+}
+
+.dialog-content {
+  background: white;
+  padding: 28px;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  min-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #111827;
+    text-align: center;
+  }
+
+  input {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: border 0.2s;
+
+    &:focus {
+      border-color: #2563eb;
+      outline: none;
+    }
+  }
+
+.reusable-table {
+  padding: 1rem;
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #1f2937; // gris oscuro
+  }
+
+  .table-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+
+    button {
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.2s;
+
+      &.btn-add {
+        background-color: #22c55e; // verde
+        color: white;
+
+        &:hover:not(:disabled) {
+          background-color: #16a34a;
+        }
+      }
+
+      &.btn-edit {
+        background-color: #3b82f6; // azul
+        color: white;
+
+        &:hover:not(:disabled) {
+          background-color: #2563eb;
+        }
+      }
+
+      &.btn-delete {
+        background-color: #ef4444; // rojo
+        color: white;
+
+        &:hover:not(:disabled) {
+          background-color: #dc2626;
+        }
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+}

@@ -1,10 +1,17 @@
-# controllers/role_controller.py
+import logging
+import traceback
 from flask import Blueprint, request, jsonify
-from services.group_service import GroupService
+from services.group_service import groupservice
 from psycopg2 import DatabaseError
 
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
 group_bp = Blueprint("iam-user-groups", __name__)
-group_service = GroupService()
+group_service = groupservice()
 
 # -------------------------------
 # Ping para verificar servidor
@@ -22,6 +29,7 @@ def get_roles():
         roles = group_service.get_all_groups()
         return jsonify([r.to_dict() for r in roles])
     except Exception as e:
+        logging.error("Error obteniendo roles:\n%s", traceback.format_exc())
         return jsonify({
             "error": "Error obteniendo roles",
             "details": str(e),
@@ -39,6 +47,7 @@ def get_group(user_group_id):
             return jsonify(group.to_dict())
         return jsonify({"error": "Rol no encontrado"}), 404
     except Exception as e:
+        logging.error("Error obteniendo rol %s:\n%s", user_group_id, traceback.format_exc())
         return jsonify({
             "error": "Error obteniendo rol",
             "details": str(e),
@@ -65,15 +74,8 @@ def create_group():
         else:
             return jsonify({"error": "Error desconocido creando rol"}), 500
 
-    except ConnectionError as conn_err:
-        return jsonify({"error": str(conn_err)}), 503
-    except DatabaseError as db_err:
-        return jsonify({
-            "error": "Error en la base de datos",
-            "details": str(db_err),
-            "type": type(db_err).__name__
-        }), 500
     except Exception as e:
+        logging.error("Error creando rol:\n%s", traceback.format_exc())
         return jsonify({
             "error": "Error creando rol",
             "details": str(e),
@@ -93,12 +95,13 @@ def update_group(user_group_id):
         else:
             return jsonify({"error": role_or_msg}), 404
     except Exception as e:
+        logging.error("Error actualizando rol %s:\n%s", user_group_id, traceback.format_exc())
         return jsonify({
             "error": "Error actualizando rol",
             "details": str(e),
             "type": type(e).__name__
         }), 500
-        
+
 # -------------------------------
 # Eliminar rol
 # -------------------------------
@@ -111,8 +114,33 @@ def delete_group(user_group_id):
         else:
             return jsonify({"error": msg}), 404
     except Exception as e:
+        logging.error("Error eliminando rol %s:\n%s", user_group_id, traceback.format_exc())
         return jsonify({
             "error": "Error eliminando rol",
+            "details": str(e),
+            "type": type(e).__name__
+        }), 500
+
+@group_bp.route("/<string:user_group_id>/status", methods=["PATCH"])
+def change_group_status(user_group_id):
+    try:
+        data = request.json
+        if "is_active" not in data:
+            return jsonify({"error": "Falta el campo 'is_active'"}), 400
+
+        is_active = data["is_active"]
+        success, group_or_msg = group_service.change_group_status(user_group_id, is_active)
+
+        if success:
+            logging.info("Estado del rol %s cambiado a %s", user_group_id, is_active)
+            return jsonify(group_or_msg.to_dict())
+        else:
+            return jsonify({"error": group_or_msg}), 404
+
+    except Exception as e:
+        logging.error("Error cambiando estado del rol %s:\n%s", user_group_id, traceback.format_exc())
+        return jsonify({
+            "error": "Error cambiando estado del rol",
             "details": str(e),
             "type": type(e).__name__
         }), 500

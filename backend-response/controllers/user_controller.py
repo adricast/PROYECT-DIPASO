@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 from services.user_service import UserService
 
-user_bp = Blueprint("users", __name__)
+user_bp = Blueprint("iam-users", __name__)
 user_service = UserService()
 
 @user_bp.route("/", methods=["GET"])

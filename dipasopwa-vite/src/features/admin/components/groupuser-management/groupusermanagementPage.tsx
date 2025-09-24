@@ -1,7 +1,7 @@
 // src/pages/GroupUserManagementPage.tsx
 import React, { useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import GroupManagement from "./groupusermanagement";
+import GroupManagement from "./groupusermanagement2";
 import { useKeyboardShortcut } from "./../../../../hooks/functions/useKeyboardShoartcut";
 import { SHORTCUTS } from "./../../../../config/shortcuts/keyShortcuts";
 

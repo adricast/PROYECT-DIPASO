@@ -1,0 +1,243 @@
+.group-management {
+  padding: 30px;
+  max-width: 400px;
+  max-height: 700px;
+  margin: 40px auto;
+  font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+  background: linear-gradient(180deg, #f9fafb, #f3f4f6);
+  border-radius: 0px;
+  box-shadow: 0 8px 20px #af86f2;
+ 
+  .header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+
+    h2 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: #111827;
+      margin: 0;
+    }
+
+    .add-button, .refresh-button{
+     
+      background-color: white; 
+      border: none;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px#af86f2;
+      transition: all 0.25s;
+      font-size: 23px;
+      color: #4a3a65;
+      font-size: 10px;
+      &:hover {
+        border: 2px solid gray;
+        transform: scale(1.08);
+      }
+    }
+  }
+
+  .groups-list-container {
+    height: 100%;
+    margin-bottom: 24px;
+   
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-top: 5px;
+    gap:0px;
+    overflow-y: auto;
+  }
+
+  .groups-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .group-item {
+    background: white;
+    border-radius: 0;
+    padding: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+    color: black;
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    span {
+      font-size: 1rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+  .item-actions{
+    display: flex;
+    .delete-button,.edit-button {
+    //background: #624A89; /* Color pálido */
+    background: white;
+    color: #4f3c6e;
+    margin: 3px;
+    box-shadow: 2px 2px gray;
+    border: none; /* opcional, si no quieres borde */
+    border-radius: 5px;
+    //border:2px solid black;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    border: 1px solid #af86f2;
+    transition: background 0.3s ease, transform 0.3s ease;
+
+    &:hover {
+      border: 2px solid black;
+      background: white; /* un poco más oscuro al pasar */
+      
+      transform: scale(1.1);
+    }
+  } 
+  
+
+    svg {
+      transition: transform 0.3s ease;
+      &:hover {
+        transform: scale(1.2);
+      }
+    }
+  }
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    gap: 6px;
+
+    .page-button {
+     
+      color: black;
+      border: none;
+      border: 2px solid gray;
+      background-color: white;
+      padding: 8px 10px;
+      cursor: pointer;
+      border-radius: 5px;
+      font-size: 0.5rem;
+      font-weight: 500;
+      transition: background 0.2s, color 0.2s;
+
+      &:hover {
+        background-color: #d1d5db;
+      }
+
+      &.active {
+        border: 2px solid gray;
+        background-color: white;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+/* Diálogo con blur */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  border-radius: 0px;
+  input{
+    background-color: white;
+    color: black;
+    border: 2px solid gray;
+  }
+}
+
+.dialog-content {
+  background: white;
+  padding: 28px;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  min-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #111827;
+    text-align: center;
+  }
+
+  input {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: border 0.2s;
+
+    &:focus {
+      border-color: #2563eb;
+      outline: none;
+    }
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: background 0.2s;
+
+      &:first-child {
+        background-color: #f3f4f6;
+        color: black;
+        &:hover {
+          background-color: #e5e7eb;
+        }
+      }
+
+      &:last-child {
+         background: #7a1d8c; 
+        color: white;
+        &:hover {
+          background: #1b061f; 
+        }
+      }
+
+      &.confirm-delete {
+        border:2px solid brown;
+        background-color: #ef4444 !important;
+        &:hover {
+          background-color: #dc2626 !important;
+        }
+      }
+    }
+  }
+}
