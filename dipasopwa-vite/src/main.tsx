@@ -7,7 +7,7 @@ import 'primereact/resources/themes/lara-light-blue/theme.css'; // tema de Prime
 import 'primereact/resources/primereact.min.css';               // core de PrimeReact
 import 'primeicons/primeicons.css';                             // íconos
 import 'primeflex/primeflex.css';                               // (opcional) utilidades PrimeFlex
-
+import './input.css';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

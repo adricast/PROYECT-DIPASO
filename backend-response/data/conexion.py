@@ -17,12 +17,12 @@ from psycopg2.extras import RealDictCursor
 # Configuración de la base de datos en localhost
 DB_HOST = "localhost"  # localhost
 DB_PORT = "5432"
-#DB_NAME = "dipasopwa"
-#DB_USER = "postgres"
-#DB_PASSWORD = "Adricast1127"
-DB_NAME = "postgres"
+DB_NAME = "dipasopwa"
 DB_USER = "postgres"
-DB_PASSWORD = "Adricast2711"
+DB_PASSWORD = "Adricast1127"
+#DB_NAME = "postgres"
+#DB_USER = "postgres"
+#DB_PASSWORD = "Adricast2711"
 
 def get_connection():
     """

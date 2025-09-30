@@ -256,6 +256,7 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
     /* RENDER PRINCIPAL*/
     /**************************************************/
     return (
+        
         <div className="group-management table-wrapper">
             <div className="header-actions">
                 <h2>Gestión de Grupos</h2>
@@ -269,6 +270,7 @@ const GroupManagement = forwardRef<any, any>((_, ref) => {
                 <button className="refresh-button action-btn" onClick={handleRefresh}>
                     <FaRotate size={16} />
                 </button>
+        
             </div>
 
             <div className="table-container">

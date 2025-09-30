@@ -1,22 +1,29 @@
-from dataclasses import dataclass, field
-from uuid import UUID, uuid4
+from dataclasses import dataclass
+from uuid import UUID
 from datetime import datetime
 from data.conexion import get_connection
 from psycopg2.sql import SQL, Identifier
 
 @dataclass
 class Group:
-    user_group_id: UUID = field(default_factory=uuid4)
+    user_group_id: UUID  # Obligatorio al crear, no se genera automáticamente
     group_name: str = None
     description: str = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = None
+    updated_at: datetime = None
     is_active: bool = True
     created_by_user_id: int = None
     updated_by_user_id: int = None
     integration_code: str = None
 
     TABLE_NAME = "iam_user_groups"
+
+    def __post_init__(self):
+        now = datetime.utcnow()
+        if self.created_at is None:
+            self.created_at = now
+        if self.updated_at is None:
+            self.updated_at = now
 
     def to_dict(self):
         return {

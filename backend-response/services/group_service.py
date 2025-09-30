@@ -1,65 +1,78 @@
-# services/group_service.py
-from models.group_model import Group 
+from models.group_model import Group
 from datetime import datetime
-import uuid
 
 class groupservice:
     """Servicio modular para CRUD de Roles"""
 
-    def create_group(self, group_name: str, description: str):
+    def create_group(self, group_name: str, description: str, transaction_id: str):
         try:
             group = Group(
+                user_group_id=transaction_id,
                 group_name=group_name,
                 description=description,
             )
             success = group.save()
-            return success, group if success else None
+            if not success:
+                raise Exception("Error desconocido guardando el grupo")
+            return group
         except Exception as e:
             print("❌ Error creando rol:", e)
             raise
 
     def get_all_groups(self):
-        """Devuelve todos los roles"""
-        return Group.get_all()
+        try:
+            return Group.get_all()
+        except Exception as e:
+            print("❌ Error obteniendo roles:", e)
+            raise
 
     def get_group_by_id(self, user_group_id: str):
-        """Obtiene un rol por su UUID"""
-        return Group.get_by_id(user_group_id)
+        try:
+            group = Group.get_by_id(user_group_id)
+            if not group:
+                raise Exception("Rol no encontrado")
+            return group
+        except Exception as e:
+            print("❌ Error obteniendo rol:", e)
+            raise
 
     def update_group(self, user_group_id: str, **kwargs):
-        """Actualiza campos de un rol"""
-        group = Group.get_by_id(user_group_id)
-        if not group:
-            return False, "Rol no encontrado"
-
-        for key, value in kwargs.items():
-            if hasattr(group, key):
-                setattr(group, key, value)
-
-        success = group.update()
-        return success, group if success else "Error actualizando rol"
+        try:
+            group = Group.get_by_id(user_group_id)
+            if not group:
+                raise Exception("Rol no encontrado")
+            for key, value in kwargs.items():
+                if hasattr(group, key):
+                    setattr(group, key, value)
+            if not group.update():
+                raise Exception("Error actualizando rol")
+            return group
+        except Exception as e:
+            print("❌ Error actualizando rol:", e)
+            raise
 
     def delete_group(self, user_group_id: str):
-        """Elimina un rol"""
-        group = Group.get_by_id(user_group_id)
-        if not group:
-            return False, "Rol no encontrado"
-        success = group.delete()
-        return success, "Rol eliminado" if success else "Error eliminando rol"
-
-
+        try:
+            group = Group.get_by_id(user_group_id)
+            if not group:
+                raise Exception("Rol no encontrado")
+            if not group.delete():
+                raise Exception("Error eliminando rol")
+            return {"message": "Rol eliminado"}
+        except Exception as e:
+            print("❌ Error eliminando rol:", e)
+            raise
 
     def change_group_status(self, user_group_id: str, is_active: bool):
-        """Cambia solo el estado (activo/inactivo) de un grupo"""
-        group = Group.get_by_id(user_group_id)
-        if not group:
-            return False, "Rol no encontrado"
-
         try:
+            group = Group.get_by_id(user_group_id)
+            if not group:
+                raise Exception("Rol no encontrado")
             group.is_active = is_active
             group.updated_at = datetime.utcnow()
-            success = group.update()
-            return success, group if success else "Error actualizando estado"
+            if not group.update():
+                raise Exception("Error actualizando estado")
+            return group
         except Exception as e:
             print("❌ Error cambiando estado del rol:", e)
-            return False, str(e)
+            raise

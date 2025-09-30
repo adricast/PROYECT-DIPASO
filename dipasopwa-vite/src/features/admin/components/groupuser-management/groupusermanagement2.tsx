@@ -5,10 +5,13 @@ import AddEditGroupDialog from "./addeditgroupdialog2";
 import DeleteConfirmationDialog from "./deleteconfirmationdialog";
 import ReusableTable from "../../../../components/layout/screenusableLayout";
 import { v4 as uuidv4 } from "uuid";
-import { useKeyboardShortcut } from "./../../../../hooks/functions/useKeyboardShoartcut";
-import { SHORTCUTS } from "./../../../../config/shortcuts/keyShortcuts";
+
 import "./../../styles/group-management2.scss";
 // ✅ Declaramos el tipo de referencia que el padre podrá usar
+
+import { InputText } from "primereact/inputtext";
+import { Button } from "primereact/button";
+
 export type GroupManagementRef = {
   handleOpenGroupModal: () => void;
   handleEditFromShortcut: () => void;
@@ -16,6 +19,10 @@ export type GroupManagementRef = {
 };
 
 const GroupManagement = forwardRef<GroupManagementRef>((_, ref) => {
+
+
+
+
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [selectedRows, setSelectedRows] = useState<Group[]>([]);
@@ -106,8 +113,67 @@ const GroupManagement = forwardRef<GroupManagementRef>((_, ref) => {
   ];
 
   return (
+    
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">Gestión de Grupos</h2>
+     {/* 🔥 Bloque de prueba con InputGroup */}
+
+<div className="space-y-4 w-full max-w-md p-4 bg-gray-50 rounded-lg shadow-lg">
+
+  {/* Primer input group */}
+  <div className="flex items-center w-full">
+    <button
+      className="px-4 py-2 !bg-blue-600 text-white font-semibold rounded-l-md hover:!bg-blue-600 transition-colors flex items-center"
+    >
+      <img src="https://dl.dropboxusercontent.com/scl/fi/4zlfj05kv53iijdo4e2td/busqueda.png?rlkey=d7qlp7uikpqcjm9wxgv5dtefl" alt="search" className="w-5 h-5 mr-2" /> {/* Imagen PNG */}
+      Search
+    </button>
+    <input
+      type="text"
+      placeholder="Keyword"
+      className="flex-1 px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+    />
+  </div>
+
+  {/* Segundo input group con icono dentro del input */}
+
+<div className="flex items-center w-full relative">
+  <button
+    className="px-4 py-2 !bg-blue-500 text-white font-semibold rounded-l-md hover:!bg-blue-600 transition-colors"
+  >
+    Search
+  </button>
+  <div className="flex-1 relative">
+    <input
+      type="text"
+      placeholder="Keyword"
+      className="w-full pl-10 pr-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+    />
+    {/* Imagen dentro del input */}
+    <img 
+      src="https://dl.dropboxusercontent.com/scl/fi/4zlfj05kv53iijdo4e2td/busqueda.png?rlkey=d7qlp7uikpqcjm9wxgv5dtefl" 
+      alt="icon" 
+      className="absolute left-3 top-1/2 -translate-y-1/2 w-1 h-0.8 object-cover"
+    />
+  </div>
+</div>
+
+  {/* Tercer input group con botón icono */}
+  <div className="flex items-center w-full">
+    <button
+      className="w-2 h-10  py-1 !bg-blue-600 text-white font-semibold rounded-l-md hover:!bg-blue-700 transition-colors flex items-center justify-center"
+    >
+      <img src="https://dl.dropboxusercontent.com/scl/fi/4zlfj05kv53iijdo4e2td/busqueda.png?rlkey=d7qlp7uikpqcjm9wxgv5dtefl" alt="search" className="w-4 h-4" /> {/* Imagen PNG */}
+    </button>
+    <input
+      type="text"
+      placeholder="Vote"
+      className="flex-1 px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-green-400"
+    />
+  </div>
+
+</div>
+
 
       <ReusableTable
         moduleName="Grupos"
